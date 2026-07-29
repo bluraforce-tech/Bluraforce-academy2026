@@ -1,0 +1,15 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { BookOpen, FileText, GraduationCap, LayoutDashboard, LogOut, PlayCircle, Ticket, Users } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+
+const nav=[["Dashboard",LayoutDashboard],["Students",Users],["Invitation codes",Ticket],["Exams",BookOpen],["Lesson videos",PlayCircle],["Material Box",FileText]] as const;
+export default async function Dashboard({params}:{params:Promise<{role:string}>}){
+ const {role}=await params; if(!["admin","teacher","student"].includes(role)) redirect("/");
+ const supabase=await createClient(); const {data:{user}}=await supabase.auth.getUser(); if(!user) redirect(`/auth/${role}/login`);
+ const {data:profile}=await supabase.from("profiles").select("full_name,role").eq("id",user.id).single();
+ if(profile?.role!==role) redirect("/");
+ const student=role==="student";
+ const stats=student?[["Assigned exams","3"],["Lessons available","6"],["Materials","8"],["Average score","86%"]]:role==="teacher"?[["Enrolled students","124"],["Active codes","18"],["Exam completion","82%"],["Average score","84%"]]:[["Active teachers","24"],["Students","1,842"],["Enrollments","2,106"],["Open alerts","7"]];
+ return <main className="app-frame"><aside><Link href="/" className="brand"><span className="brand-mark"><GraduationCap/></span>Academy</Link><nav>{nav.map(([label,Icon],i)=><Link key={label} className={i===0?"active":""} href="#"><Icon size={19}/>{student&&label==="Students"?"My teachers":label}</Link>)}</nav><Link className="logout" href="/"><LogOut size={18}/>Sign out</Link></aside><section className="app-content"><header><div><small>{role} workspace</small><h1>Welcome back, {profile.full_name.split(" ")[0]}</h1><p>Here&apos;s what&apos;s happening with your learning space today.</p></div><span className="user-badge">{profile.full_name.slice(0,2).toUpperCase()}</span></header><div className="stat-grid">{stats.map(([label,value])=><article key={label}><small>{label}</small><strong>{value}</strong><span>Updated now</span></article>)}</div><div className="content-grid"><section className="panel"><div className="panel-head"><div><h2>{student?"Continue learning":"Recent activity"}</h2><p>Your latest updates</p></div><button>View all</button></div>{["Electronics fundamentals","Revision assessment","Arduino session notes"].map((x,i)=><div className="activity" key={x}><span className="activity-icon">{i===0?<PlayCircle/>:i===1?<BookOpen/>:<FileText/>}</span><div><b>{x}</b><small>{i===0?"Lesson · 24 minutes":i===1?"Exam · Due tomorrow":"Material · Added recently"}</small></div><span>{i===0?"Continue":"Open"}</span></div>)}</section><section className="panel"><div className="panel-head"><div><h2>Progress</h2><p>This week</p></div></div><div className="big-progress"><strong>78%</strong><span>Weekly goal</span></div><div className="progress-row"><span>Exams completed</span><b>4 / 5</b></div><div className="progress-row"><span>Lessons watched</span><b>7 / 9</b></div></section></div></section></main>
+}
