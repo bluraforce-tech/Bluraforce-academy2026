@@ -1,0 +1,3 @@
+import { z } from "zod";import { NextResponse } from "next/server";import { createClient } from "@/lib/supabase/server";
+const schema=z.object({questionId:z.string().uuid(),choiceIds:z.array(z.string().uuid()).min(1)});
+export async function POST(request:Request,{params}:{params:Promise<{attemptId:string}>}){const input=schema.safeParse(await request.json().catch(()=>null));if(!input.success)return NextResponse.json({message:"Invalid answer"},{status:400});const {attemptId}=await params,supabase=await createClient();const {error}=await supabase.rpc("save_attempt_answer",{p_attempt_id:attemptId,p_question_id:input.data.questionId,p_choice_ids:input.data.choiceIds});return error?NextResponse.json({message:"Attempt is closed"},{status:409}):NextResponse.json({saved:true})}

@@ -26,15 +26,15 @@ alter table audit_logs enable row level security;
 
 create policy profiles_admin_all on profiles for all to authenticated using(is_admin()) with check(is_admin());
 create policy profiles_self_read on profiles for select to authenticated using(id=auth.uid());
-create policy profiles_self_safe_update on profiles for update to authenticated using(id=auth.uid()) with check(id=auth.uid() and role=current_role());
+create policy profiles_self_safe_update on profiles for update to authenticated using(id=auth.uid()) with check(id=auth.uid() and role=app_current_role());
 create policy profiles_teacher_students on profiles for select to authenticated using(
- current_role()='teacher' and exists(select 1 from teacher_student_enrollments e where e.teacher_id=auth.uid() and e.student_id=profiles.id and e.status='active'));
+ app_current_role()='teacher' and exists(select 1 from teacher_student_enrollments e where e.teacher_id=auth.uid() and e.student_id=profiles.id and e.status='active'));
 
 create policy active_teachers_public on teacher_profiles for select to authenticated using(is_active or is_admin() or user_id=auth.uid());
 create policy teachers_admin_write on teacher_profiles for all to authenticated using(is_admin()) with check(is_admin());
 create policy students_admin_all on student_profiles for all to authenticated using(is_admin()) with check(is_admin());
 create policy students_self_read on student_profiles for select to authenticated using(user_id=auth.uid());
-create policy students_teacher_read on student_profiles for select to authenticated using(current_role()='teacher' and exists(
+create policy students_teacher_read on student_profiles for select to authenticated using(app_current_role()='teacher' and exists(
  select 1 from teacher_student_enrollments e where e.teacher_id=auth.uid() and e.student_id=student_profiles.user_id and e.status='active'));
 create policy students_self_update on student_profiles for update to authenticated using(user_id=auth.uid())
  with check(user_id=auth.uid()); -- column grants below prevent identity-field edits.
@@ -108,7 +108,7 @@ create policy audit_admin_read on audit_logs for select to authenticated using(i
 insert into storage.buckets(id,name,public,file_size_limit) values('private-materials','private-materials',false,52428800)
 on conflict(id) do update set public=false;
 create policy material_upload_teacher on storage.objects for insert to authenticated with check(
- bucket_id='private-materials' and current_role() in ('admin','teacher') and (current_role()='admin' or (storage.foldername(name))[1]=auth.uid()::text));
+ bucket_id='private-materials' and app_current_role() in ('admin','teacher') and (app_current_role()='admin' or (storage.foldername(name))[1]=auth.uid()::text));
 create policy material_manage_teacher on storage.objects for all to authenticated using(
  bucket_id='private-materials' and (is_admin() or (storage.foldername(name))[1]=auth.uid()::text))
 with check(bucket_id='private-materials' and (is_admin() or (storage.foldername(name))[1]=auth.uid()::text));

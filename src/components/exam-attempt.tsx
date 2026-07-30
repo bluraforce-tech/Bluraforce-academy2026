@@ -1,0 +1,223 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+
+type Choice = { id: string; text: string };
+type Question = {
+  id: string;
+  text: string;
+  imageUrl: string | null;
+  points: number;
+  multiple: boolean;
+  choices: Choice[];
+};
+type Props = {
+  attemptId: string;
+  teacherId: string;
+  returnSection: "exams" | "mistakes-exams";
+  expiresAt: string;
+  serverNow: string;
+  status: string;
+  exam: { title: string; instructions: string | null; questions: Question[] };
+  initialAnswers: Record<string, string[]>;
+};
+
+export function ExamAttempt({
+  attemptId,
+  teacherId,
+  returnSection,
+  expiresAt,
+  serverNow,
+  status,
+  exam,
+  initialAnswers,
+}: Props) {
+  const router = useRouter();
+  const [answers, setAnswers] = useState(initialAnswers);
+  const [remaining, setRemaining] = useState(0);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [tabViolation, setTabViolation] = useState(false);
+  const leavingExam = useRef(false);
+  const processingViolation = useRef(false);
+  const pageIsUnloading = useRef(false);
+  const deadline = useMemo(() => Date.parse(expiresAt), [expiresAt]);
+  const serverBase = useMemo(() => Date.parse(serverNow), [serverNow]);
+
+  useEffect(() => {
+    if (status !== "in_progress") return;
+    const markUnloading = () => { pageIsUnloading.current = true; };
+    const goToLogin = () => window.location.replace("/auth/student/login?error=exam-tab");
+    const leaveExam = () => {
+      if (document.visibilityState === "visible") {
+        if (leavingExam.current && !pageIsUnloading.current && !processingViolation.current) {
+          processingViolation.current = true;
+          setTabViolation(true);
+          setSubmitting(true);
+          fetch(`/api/exams/attempts/${attemptId}/leave`, {
+            method: "POST",
+            keepalive: true,
+          }).finally(goToLogin);
+        }
+        return;
+      }
+      if (leavingExam.current) return;
+      leavingExam.current = true;
+      setTabViolation(true);
+      setSubmitting(true);
+    };
+    window.addEventListener("beforeunload", markUnloading);
+    document.addEventListener("visibilitychange", leaveExam);
+    return () => {
+      window.removeEventListener("beforeunload", markUnloading);
+      document.removeEventListener("visibilitychange", leaveExam);
+    };
+  }, [attemptId, status]);
+
+  useEffect(() => {
+    const begun = performance.now();
+    const controller = new AbortController();
+    let submitted = false;
+    const tick = () => {
+      const serverTime = serverBase + performance.now() - begun;
+      const value = Math.max(0, Math.ceil((deadline - serverTime) / 1000));
+      setRemaining(value);
+      if (value === 0 && status === "in_progress" && !submitted) {
+        submitted = true;
+        fetch(`/api/exams/attempts/${attemptId}/submit`, {
+          method: "POST",
+          signal: controller.signal,
+        })
+          .then(async (response) => {
+            const result = await response.json().catch(() => null);
+            if (!response.ok) {
+              throw new Error(result?.message ?? "Unable to submit the exam.");
+            }
+            router.push(`/student/teachers/${teacherId}/${returnSection}?submitted=1`);
+          })
+          .catch((error) => {
+            if (error.name !== "AbortError") {
+              submitted = false;
+              setSubmitError(
+                error instanceof Error ? error.message : "Unable to submit the exam.",
+              );
+            }
+          });
+      }
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => {
+      clearInterval(timer);
+      controller.abort();
+    };
+  }, [attemptId, deadline, router, serverBase, status, teacherId, returnSection]);
+
+  async function choose(questionId: string, choiceId: string, multiple: boolean) {
+    const current = answers[questionId] ?? [];
+    const next = multiple
+      ? current.includes(choiceId)
+        ? current.filter((id) => id !== choiceId)
+        : [...current, choiceId]
+      : [choiceId];
+    setAnswers((value) => ({ ...value, [questionId]: next }));
+    setSaving(questionId);
+    await fetch(`/api/exams/attempts/${attemptId}/answers`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ questionId, choiceIds: next }),
+    });
+    setSaving(null);
+  }
+
+  async function submitExam() {
+    if (submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const response = await fetch(`/api/exams/attempts/${attemptId}/submit`, {
+        method: "POST",
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(result?.message ?? "Unable to submit the exam.");
+      }
+      router.push(`/student/teachers/${teacherId}/${returnSection}?submitted=1`);
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "Unable to submit the exam.",
+      );
+      setSubmitting(false);
+    }
+  }
+
+  const closed = status !== "in_progress";
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+
+  return (
+    <main className="attempt-page">
+      {tabViolation && <div className="exam-tab-lock" role="alert"><strong>Exam closed</strong><span>You switched away from the exam tab. Your attempt is being submitted and your session is signing out.</span></div>}
+      <header className="attempt-header">
+        <div>
+          <small>Timed exam</small>
+          <h1>{exam.title}</h1>
+          <p>{exam.instructions}</p>
+        </div>
+        <div className={`exam-timer ${remaining < 300 ? "warning" : ""}`}>
+          <small>Time remaining</small>
+          <strong>
+            {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
+          </strong>
+          <span>Server controlled</span>
+        </div>
+      </header>
+
+      {exam.questions.map((question, index) => (
+        <section className="panel attempt-question" key={question.id}>
+          <div className="question-number">
+            Question {index + 1} · {question.points} points{" "}
+            {saving === question.id && <span>Saving…</span>}
+          </div>
+          <h2>{question.text}</h2>
+          {question.imageUrl && <img src={question.imageUrl} alt="Question" />}
+          <div className="attempt-choices">
+            {question.choices.map((choice) => (
+              <label key={choice.id}>
+                <input
+                  type={question.multiple ? "checkbox" : "radio"}
+                  name={question.id}
+                  checked={(answers[question.id] ?? []).includes(choice.id)}
+                  disabled={closed || submitting}
+                  onChange={() => choose(question.id, choice.id, question.multiple)}
+                />
+                <span>{choice.text}</span>
+              </label>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      <div className="attempt-submit">
+        {submitError && (
+          <p role="alert" className="form-error">
+            {submitError}
+          </p>
+        )}
+        {closed ? (
+          <p>This attempt has been submitted.</p>
+        ) : (
+          <button
+            className="button"
+            disabled={submitting || saving !== null}
+            onClick={submitExam}
+          >
+            {submitting ? "Submitting…" : "Submit exam"}
+          </button>
+        )}
+      </div>
+    </main>
+  );
+}

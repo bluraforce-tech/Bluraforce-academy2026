@@ -30,13 +30,15 @@ create table public.student_profiles (
 create table public.teacher_student_enrollments (
   id uuid primary key default gen_random_uuid(), teacher_id uuid not null references public.teacher_profiles(user_id),
   student_id uuid not null references public.student_profiles(user_id), status enrollment_status not null default 'active',
-  enrolled_at timestamptz not null default now(), revoked_at timestamptz,
+  enrolled_at timestamptz not null default now(), access_expires_at timestamptz, revoked_at timestamptz,
   unique(teacher_id,student_id)
 );
 create table public.student_invitation_codes (
   id uuid primary key default gen_random_uuid(), code_hash text not null unique, code_masked text not null,
   teacher_id uuid not null references public.teacher_profiles(user_id), created_by uuid not null references public.profiles(id),
-  status code_status not null default 'active', expires_at timestamptz, redeemed_by uuid references public.student_profiles(user_id),
+  status code_status not null default 'active', expires_at timestamptz not null default (now()+interval '2 days'),
+  access_duration_days int not null check(access_duration_days between 1 and 3650),
+  redeemed_by uuid references public.student_profiles(user_id),
   redeemed_at timestamptz, revoked_at timestamptz, created_at timestamptz not null default now()
 );
 create table public.teacher_settings (
@@ -166,21 +168,24 @@ create index materials_teacher_status_idx on public.materials(teacher_id,status)
 create index material_assignments_student_idx on public.material_assignments(student_id);
 create index audit_created_idx on public.audit_logs(created_at desc);
 
-create function public.current_role() returns app_role language sql stable security definer set search_path=public
+create function public.app_current_role() returns app_role language sql stable security definer set search_path=public
 as $$ select role from public.profiles where id=auth.uid() $$;
 create function public.is_admin() returns boolean language sql stable security definer set search_path=public
-as $$ select coalesce(public.current_role()='admin',false) $$;
+as $$ select coalesce(public.app_current_role()='admin',false) $$;
 create function public.is_active_enrollment(p_teacher uuid,p_student uuid default auth.uid()) returns boolean
 language sql stable security definer set search_path=public as $$
  select exists(select 1 from teacher_student_enrollments e join teacher_profiles t on t.user_id=e.teacher_id
- where e.teacher_id=p_teacher and e.student_id=p_student and e.status='active' and t.is_active)
+ where e.teacher_id=p_teacher and e.student_id=p_student and e.status='active'
+ and (e.access_expires_at is null or e.access_expires_at>now()) and t.is_active)
 $$;
 
 create function public.complete_student_registration(p_user_id uuid,p_full_name text,p_age smallint,p_address text,p_mobile text,p_guardian_mobile text,p_national_id_hash text,p_national_id_encrypted text,p_national_id_last4 text)
 returns void language plpgsql security definer set search_path=public as $$
 begin
  if auth.role()<>'service_role' then raise exception 'forbidden'; end if;
- insert into profiles(id,role,full_name) values(p_user_id,'student',p_full_name);
+ insert into profiles(id,role,full_name) values(p_user_id,'student',p_full_name)
+ on conflict(id) do update set full_name=excluded.full_name,updated_at=now()
+ where profiles.role='student';
  insert into student_profiles(user_id,age,address,mobile,guardian_mobile,national_id_hash,national_id_encrypted,national_id_last4)
  values(p_user_id,p_age,p_address,p_mobile,p_guardian_mobile,p_national_id_hash,p_national_id_encrypted,p_national_id_last4);
 end $$;
@@ -189,14 +194,16 @@ create function public.redeem_invitation_code(p_teacher_id uuid,p_code_hash text
 language plpgsql security definer set search_path=public as $$
 declare c student_invitation_codes; enrollment_id uuid;
 begin
- if current_role()<>'student' then raise exception 'forbidden'; end if;
+ if public.app_current_role()<>'student' then raise exception 'forbidden'; end if;
  select * into c from student_invitation_codes where code_hash=p_code_hash for update;
  if not found then raise exception 'invalid_code'; end if;
  if c.teacher_id<>p_teacher_id then raise exception 'wrong_teacher'; end if;
  if c.status<>'active' or c.revoked_at is not null then raise exception 'unavailable_code'; end if;
  if c.expires_at is not null and c.expires_at<=now() then update student_invitation_codes set status='expired' where id=c.id; raise exception 'expired_code'; end if;
- insert into teacher_student_enrollments(teacher_id,student_id) values(p_teacher_id,auth.uid())
- on conflict(teacher_id,student_id) do update set status='active',revoked_at=null returning id into enrollment_id;
+ insert into teacher_student_enrollments(teacher_id,student_id,access_expires_at)
+ values(p_teacher_id,auth.uid(),now()+make_interval(days=>c.access_duration_days))
+ on conflict(teacher_id,student_id) do update set status='active',revoked_at=null,
+ access_expires_at=excluded.access_expires_at returning id into enrollment_id;
  update student_invitation_codes set status='redeemed',redeemed_by=auth.uid(),redeemed_at=now() where id=c.id;
  insert into audit_logs(actor_id,actor_role,action,entity_type,entity_id) values(auth.uid(),'student','code.redeemed','enrollment',enrollment_id);
  return enrollment_id;

@@ -14,7 +14,7 @@ export async function login(formData:FormData){
   if(error||!data.user) redirect(`/auth/${parsed.data.role}/login?error=credentials`);
   const {data:profile}=await supabase.from("profiles").select("role").eq("id",data.user.id).single();
   if(profile?.role!==parsed.data.role){await supabase.auth.signOut();redirect(`/auth/${parsed.data.role}/login?error=role`)}
-  redirect(`/${parsed.data.role}/dashboard`);
+  redirect(parsed.data.role==="student"?"/student/teachers":`/${parsed.data.role}/dashboard`);
 }
 
 export async function registerStudent(formData:FormData){
@@ -27,8 +27,20 @@ export async function registerStudent(formData:FormData){
   const iv=randomBytes(12),cipher=createCipheriv("aes-256-gcm",key,iv);
   const encrypted=Buffer.concat([cipher.update(d.nationalId,"utf8"),cipher.final(),cipher.getAuthTag(),iv]).toString("base64");
   const {data:user,error}=await admin.auth.admin.createUser({email:d.email,password:d.password,email_confirm:true,user_metadata:{full_name:d.fullName}});
-  if(error||!user.user) redirect("/auth/student/register?error=account");
+  if(error||!user.user){
+    const reason=error?.code==="email_exists"||error?.code==="user_already_exists"?"email":error?.status===401||error?.status===403?"configuration":"account";
+    redirect(`/auth/student/register?error=${reason}`);
+  }
   const {error:profileError}=await admin.rpc("complete_student_registration",{p_user_id:user.user.id,p_full_name:d.fullName,p_age:d.age,p_address:d.address,p_mobile:d.mobile,p_guardian_mobile:d.guardianMobile,p_national_id_hash:hash,p_national_id_encrypted:encrypted,p_national_id_last4:d.nationalId.slice(-4)});
   if(profileError){await admin.auth.admin.deleteUser(user.user.id);redirect("/auth/student/register?error=identity")}
-  redirect("/auth/student/login?registered=1");
+  const supabase=await createClient();
+  const {error:signInError}=await supabase.auth.signInWithPassword({email:d.email,password:d.password});
+  if(signInError)redirect("/auth/student/login?registered=1");
+  redirect("/student/teachers");
+}
+
+export async function logout(){
+  const supabase=await createClient();
+  await supabase.auth.signOut();
+  redirect("/");
 }

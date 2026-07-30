@@ -1,5 +1,8 @@
--- Create auth users from the Supabase dashboard or admin API first, then replace these UUIDs.
--- Never use this seed in production with shared credentials.
-insert into public.profiles(id,role,full_name) values
-('00000000-0000-0000-0000-000000000001','admin','Development Administrator')
-on conflict(id) do nothing;
+-- Intentionally contains no application-user records.
+--
+-- A profile ID must always reference a real auth.users ID. Create the first
+-- administrator through Supabase Authentication, copy that user's UUID, and
+-- then run the bootstrap statement documented in README.md.
+--
+-- Never insert placeholder UUIDs into public.profiles and never create
+-- production users with shared seed credentials.

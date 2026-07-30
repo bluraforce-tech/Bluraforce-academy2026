@@ -1,0 +1,16 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ArrowLeft, Brain, GraduationCap } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { startAttempt } from "@/features/exams/actions";
+
+type Exam={assignmentId:string;title:string;description:string|null;durationMinutes:number;endsAt:string};
+type Attempt={id:string;assignment_id:string;status:string;score:number|null;attempt_number:number};
+export default async function Page({params,searchParams}:{params:Promise<{teacherId:string}>;searchParams:Promise<{error?:string;submitted?:string}>}){
+ const {teacherId}=await params,query=await searchParams,supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();if(!user)redirect("/auth/student/login");
+ const [{data:teacher},{data:raw,error}]=await Promise.all([supabase.from("teacher_profiles").select("display_name").eq("user_id",teacherId).single(),supabase.rpc("get_student_mistakes_exams",{p_teacher_id:teacherId})]);
+ if(!teacher||error)redirect("/student/teachers?error=access");const exams=(raw??[]) as Exam[],ids=exams.map(e=>e.assignmentId);
+ const {data:attemptRows}=ids.length?await supabase.from("exam_attempts").select("id,assignment_id,status,score,attempt_number").in("assignment_id",ids).order("attempt_number",{ascending:false}):{data:[]};
+ const latest=new Map<string,Attempt>();for(const a of (attemptRows??[]) as Attempt[])if(!latest.has(a.assignment_id))latest.set(a.assignment_id,a);
+ return <main className="app-content portal-section"><div className="student-topbar"><Link href="/student/teachers" className="brand"><span className="brand-mark"><GraduationCap/></span>Academy</Link></div><Link className="back-link" href={`/student/teachers/${teacherId}/dashboard`}><ArrowLeft size={16}/>Back to {teacher.display_name}</Link><header><div><small>{teacher.display_name}</small><h1>Mistakes exams</h1><p>Automatic revision exams generated from questions you previously answered incorrectly.</p></div></header>{query.submitted&&<p className="form-success">Your revision exam was submitted successfully.</p>}{query.error&&<p className="form-error">The revision exam could not be started.</p>}<section className="panel section-list">{exams.length===0?<div className="empty-state"><span><Brain/></span><h2>No revision exam yet</h2><p>A revision exam is generated automatically after every 3 completed exams when you have unresolved mistakes.</p></div>:exams.map(exam=>{const attempt=latest.get(exam.assignmentId),done=attempt&&attempt.status!=="in_progress",review=done&&Date.parse(exam.endsAt)<=Date.parse(new Date().toISOString());return <article className="activity" key={exam.assignmentId}><span className="activity-icon"><Brain/></span><div><b>{exam.title}</b><small>{exam.description} · {exam.durationMinutes} minutes</small></div>{done?<div className="exam-result-actions"><span className="exam-score">Score: {attempt.score??0}</span>{review&&<Link className="button secondary small" href={`/student/exams/attempts/${attempt.id}/results`}>View mistakes</Link>}</div>:<form action={startAttempt}><input type="hidden" name="assignmentId" value={exam.assignmentId}/><input type="hidden" name="teacherId" value={teacherId}/><button className="button small">{attempt?"Resume exam":"Start revision"}</button></form>}</article>})}</section></main>;
+}

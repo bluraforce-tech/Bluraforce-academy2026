@@ -13,11 +13,18 @@ Never prefix service-role, HMAC, encryption, or invitation-code secrets with `NE
 
 ## First administrator
 
-Create a user in Supabase Authentication, then run this once in the SQL editor while replacing both values:
+Migration `202607300003_auth_profile_trigger.sql` automatically creates a
+`student` profile whenever a Supabase Auth user is created. It deliberately
+ignores role metadata because Auth user metadata can be controlled by users in
+some flows.
+
+Create a user in Supabase Authentication, then promote that existing profile
+once in the SQL editor:
 
 ```sql
-insert into public.profiles(id, role, full_name)
-values ('AUTH_USER_UUID', 'admin', 'Platform Administrator');
+update public.profiles
+set role = 'admin', full_name = 'Platform Administrator', updated_at = now()
+where id = 'REAL_AUTH_USER_UUID';
 ```
 
 Admin accounts use `/auth/admin/login`. An administrator must create every teacher through a trusted server operation using the service-role client, then insert the `profiles` and `teacher_profiles` records in one compensating workflow. Teachers have independent credentials and no public registration route.

@@ -1,11 +1,13 @@
 "use client";
-import { useEffect,useId,useRef } from "react";
-export function VideoPlayer({videoId,assignmentId}:{videoId:string;assignmentId:string}){
- const frameId=useId().replaceAll(":",""),started=useRef(false);
- useEffect(()=>{let player:{destroy?:()=>void}|undefined; const begin=()=>{if(started.current)return;started.current=true;fetch(`/api/videos/${assignmentId}/start`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({sessionId:crypto.randomUUID()})})};
- const win=window as Window&{YT?:{Player:new(id:string,options:{events:{onStateChange:(e:{data:number})=>void}})=>typeof player};onYouTubeIframeAPIReady?:()=>void};
- const init=()=>{if(win.YT)player=new win.YT.Player(frameId,{events:{onStateChange:e=>{if(e.data===1)begin()}}})}; win.onYouTubeIframeAPIReady=init;
+import { useEffect,useId,useRef,useState } from "react";
+export function VideoPlayer({videoId,assignmentId,studentName}:{videoId:string;assignmentId:string;studentName:string}){
+ const frameId=useId().replaceAll(":",""),started=useRef(false),container=useRef<HTMLDivElement>(null),playerRef=useRef<{destroy?:()=>void}|undefined>(undefined),[watermarkPosition,setWatermarkPosition]=useState({left:5,top:8});
+ useEffect(()=>{const begin=()=>{if(started.current)return;started.current=true;fetch(`/api/videos/${assignmentId}/start`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({sessionId:crypto.randomUUID()})})};
+ const win=window as Window&{YT?:{Player:new(id:string,options:{events:{onStateChange:(e:{data:number})=>void}})=>{destroy?:()=>void}};onYouTubeIframeAPIReady?:()=>void};
+ const init=()=>{if(win.YT&&!playerRef.current&&document.getElementById(frameId))playerRef.current=new win.YT.Player(frameId,{events:{onStateChange:e=>{if(e.data===1)begin()}}})}; win.onYouTubeIframeAPIReady=init;
  if(!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')){const s=document.createElement("script");s.src="https://www.youtube.com/iframe_api";document.head.appendChild(s)}else init();
- return()=>player?.destroy?.()},[assignmentId,frameId]);
- return <div className="aspect-video overflow-hidden rounded-xl bg-black"><iframe id={frameId} className="h-full w-full" src={`https://www.youtube-nocookie.com/embed/${videoId}?playsinline=1&rel=0&modestbranding=1&enablejsapi=1`} title="Lesson video" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" sandbox="allow-scripts allow-same-origin allow-presentation" allowFullScreen/></div>
+ return()=>{if(win.onYouTubeIframeAPIReady===init)win.onYouTubeIframeAPIReady=undefined}},[assignmentId,frameId]);
+ useEffect(()=>{const move=()=>setWatermarkPosition({left:5+Math.random()*68,top:6+Math.random()*72});const first=window.setTimeout(move,100);const cycle=window.setInterval(move,310_000);return()=>{window.clearTimeout(first);window.clearInterval(cycle)}},[]);
+ async function toggleFullscreen(){if(document.fullscreenElement)await document.exitFullscreen();else await container.current?.requestFullscreen()}
+ return <div className="video-player-shell"><button className="button secondary small video-back-button" type="button" onClick={()=>{if(window.history.length>1)window.history.back();else window.location.assign("/student/teachers")}}>← Back to videos</button><div className="video-protected-frame" ref={container}><iframe id={frameId} className="h-full w-full" src={`https://www.youtube-nocookie.com/embed/${videoId}?playsinline=1&rel=0&modestbranding=1&enablejsapi=1&fs=0`} title="Lesson video" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" sandbox="allow-scripts allow-same-origin allow-presentation"/><div className="video-watermark" style={{left:`${watermarkPosition.left}%`,top:`${watermarkPosition.top}%`}} aria-hidden="true"><span>{studentName}</span><small>Academy protected lesson</small></div><button className="video-fullscreen-button" type="button" onClick={toggleFullscreen} aria-label="Toggle fullscreen">⛶</button></div></div>
 }
