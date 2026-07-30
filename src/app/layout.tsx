@@ -12,10 +12,10 @@ export const metadata: Metadata = {
     siteName: "BluraForce Academy",
     images: [
       {
-        url: "/bluraforce-logo.png",
-        width: 600,
-        height: 400,
-        alt: "BluraForce Software Solutions logo",
+        url: "/bluraforce-icon.png",
+        width: 512,
+        height: 512,
+        alt: "BluraForce logo",
       },
     ],
     type: "website",
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "BluraForce Academy — Secure learning platform",
     description: "A secure, teacher-led platform for lessons, exams, and learning progress.",
-    images: ["/bluraforce-logo.png"],
+    images: ["/bluraforce-icon.png"],
   },
 };
 
