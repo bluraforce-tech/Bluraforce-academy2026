@@ -80,6 +80,16 @@ begin
  select jsonb_build_object(
   'exams',coalesce((select jsonb_agg(jsonb_build_object('assignmentId',a.id,'title',e.title,'description',e.description,'durationMinutes',e.duration_minutes,'endsAt',e.ends_at) order by e.created_at desc) from exam_assignments a join exams e on e.id=a.exam_id where a.student_id=auth.uid() and a.revoked_at is null and e.teacher_id=p_teacher_id and e.status='published' and e.kind='standard'),'[]'::jsonb),
   'materials',coalesce((select jsonb_agg(jsonb_build_object('assignmentId',a.id,'title',m.title,'description',m.description,'materialType',m.material_type,'availableUntil',m.available_until) order by m.created_at desc) from material_assignments a join materials m on m.id=a.material_id where a.student_id=auth.uid() and a.revoked_at is null and m.teacher_id=p_teacher_id and m.status='published' and (m.available_from is null or m.available_from<=now()) and (m.available_until is null or m.available_until>now())),'[]'::jsonb),
-  'videos',coalesce((select jsonb_agg(jsonb_build_object('id',a.id,'title',v.title,'description',v.description,'maxViews',a.max_views,'countedViews',a.counted_views,'availableUntil',a.available_until) order by v.position nulls last,v.created_at desc) from video_assignments a join lesson_videos v on v.id=a.video_id where a.student_id=auth.uid() and a.revoked_at is null and v.teacher_id=p_teacher_id and v.status='published' and (a.available_from is null or a.available_from<=now()) and (a.available_until is null or a.available_until>now()) and (a.max_views is null or a.counted_views<a.max_views)),'[]'::jsonb)
+  'videos',coalesce((select jsonb_agg(jsonb_build_object(
+    'id',a.id,'title',v.title,'description',v.description,
+    'maxViews',a.max_views,'countedViews',a.counted_views,
+    'remainingViews',case when a.max_views is null then null else greatest(0,a.max_views-a.counted_views) end,
+    'viewLimitReached',a.max_views is not null and a.counted_views>=a.max_views,
+    'availableUntil',a.available_until
+   ) order by v.position nulls last,v.created_at desc)
+   from video_assignments a join lesson_videos v on v.id=a.video_id
+   where a.student_id=auth.uid() and a.revoked_at is null and v.teacher_id=p_teacher_id and v.status='published'
+   and (a.available_from is null or a.available_from<=now())
+   and (a.available_until is null or a.available_until>now())),'[]'::jsonb)
  ) into result; return result;
 end $$;
