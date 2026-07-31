@@ -82,6 +82,17 @@ export async function toggleMistakesExamVisibility(formData:FormData){
  revalidatePath("/teacher/mistakes-exams");revalidatePath("/student/teachers");revalidatePath("/student/teachers/[teacherId]/mistakes-exams","page");
  redirect(`/teacher/mistakes-exams?visibility=${input.data.visible==="true"?"shown":"hidden"}`);
 }
+export async function deleteExam(formData:FormData){
+ const supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();if(!user)redirect("/auth/teacher/login");
+ const examId=z.string().uuid().safeParse(formData.get("examId"));if(!examId.success)redirect("/teacher/exams?error=delete");
+ const {data:exam}=await supabase.from("exams").select("kind").eq("id",examId.data).eq("teacher_id",user.id).single();
+ if(!exam)redirect("/teacher/exams?error=delete");
+ const destination=exam.kind==="mistakes"?"/teacher/mistakes-exams":"/teacher/exams";
+ const {error}=await supabase.rpc("delete_teacher_exam",{p_exam_id:examId.data});
+ if(error)redirect(`${destination}?error=${error.code==="PGRST202"||error.code==="42883"?"migration":"delete"}`);
+ revalidatePath("/teacher/exams");revalidatePath("/teacher/mistakes-exams");revalidatePath("/teacher/dashboard");revalidatePath("/student/teachers");
+ redirect(`${destination}?deleted=1`);
+}
 export async function createRandomPastExam(formData:FormData){
  const supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();if(!user)redirect("/auth/teacher/login");
  const input=z.object({title:z.string().trim().min(3).max(200),description:z.string().max(2000),instructions:z.string().max(5000),durationMinutes:z.coerce.number().int().min(1).max(600),questionCount:z.coerce.number().int().min(1).max(100),startsAt:z.string(),endsAt:z.string(),maxAttempts:z.coerce.number().int().min(1).max(20),passingScore:z.string(),assignAll:z.string().optional(),studentIds:z.array(z.string().uuid())}).safeParse({...Object.fromEntries(formData),studentIds:formData.getAll("studentIds")});

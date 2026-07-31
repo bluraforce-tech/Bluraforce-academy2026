@@ -4,6 +4,7 @@ import { ArrowLeft, BookOpen, Brain, FileText, GraduationCap, LayoutDashboard, L
 import { createClient } from "@/lib/supabase/server";
 import { revokeInvitationCode } from "@/features/invitation-codes/actions";
 import { toggleExamVisibility, toggleMistakesExamVisibility } from "@/features/exams/actions";
+import { DeleteExamForm } from "@/components/delete-exam-form";
 
 export const dynamic = "force-dynamic";
 
@@ -106,6 +107,7 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
                 {createExam && <Link className="text-action" href={`/teacher/exams/${String(row.id)}/edit`}>Edit</Link>}
                 {createExam && ["published", "archived"].includes(status) && <form action={toggleExamVisibility}><input type="hidden" name="examId" value={String(row.id)} /><button className={`visibility-action ${status === "published" ? "hide" : "show"}`}>{status === "published" ? "Hide" : "Show"}</button></form>}
                 {section === "mistakes-exams" && Boolean(row.assignment_id) && <form action={toggleMistakesExamVisibility}><input type="hidden" name="assignmentId" value={String(row.assignment_id)} /><input type="hidden" name="visible" value={Boolean(row.visible) ? "false" : "true"} /><button className={`visibility-action ${Boolean(row.visible) ? "hide" : "show"}`}>{Boolean(row.visible) ? "Hide from student" : "Show to student"}</button></form>}
+                {reviewExam && <DeleteExamForm examId={String(row.id)} title={String(row.title ?? "exam")} />}
                 {createVideo && <Link className="text-action" href={`/teacher/videos/${String(row.id)}/edit`}>Edit</Link>}
                 {generateCode && status === "active" && <form action={revokeInvitationCode}><input type="hidden" name="codeId" value={String(row.id)} /><button className="danger-link">Revoke</button></form>}
               </div>
