@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { env } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
-import { parseEducationTarget } from "@/lib/education-target";
+import { invitationEducationTargetSchema } from "@/lib/education-target";
 
 export type CodeState={code?:string;error?:string};
 const FIXED_ACCESS_DURATION_DAYS=30;
@@ -27,7 +27,7 @@ async function requireTeacher(){
 }
 export async function generateInvitationCode(_:CodeState,_formData:FormData):Promise<CodeState>{
  void _;
- const parsedTarget=parseEducationTarget({educationSystem:_formData.get("educationSystem"),americanCategory:_formData.get("americanCategory"),nationalGrade:_formData.get("nationalGrade")});
+ const parsedTarget=invitationEducationTargetSchema.safeParse({educationSystem:_formData.get("educationSystem"),nationalGrade:_formData.get("nationalGrade")||null});
  if(!parsedTarget.success)return {error:parsedTarget.error.issues[0]?.message??"Please select an educational system."};
  const target=parsedTarget.data;
  const {supabase,user}=await requireTeacher();
@@ -37,7 +37,7 @@ export async function generateInvitationCode(_:CodeState,_formData:FormData):Pro
      code_hash:codeHash,code_masked:`••••-${code.slice(-4)}`,teacher_id:user.id,
      created_by:user.id,status:"active",expires_at:new Date(Date.now()+2*24*60*60*1000).toISOString(),
      access_duration_days:FIXED_ACCESS_DURATION_DAYS,
-     education_system:target.educationSystem,national_grade:target.nationalGrade,american_category:target.americanCategory,
+     education_system:target.educationSystem,national_grade:target.nationalGrade,american_category:null,
    }).select("id").single();
    if(!error&&data){
      await supabase.from("audit_logs").insert({actor_id:user.id,actor_role:"teacher",action:"code.generated",entity_type:"invitation_code",entity_id:data.id});

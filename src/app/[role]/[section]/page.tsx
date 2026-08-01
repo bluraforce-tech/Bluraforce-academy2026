@@ -18,6 +18,7 @@ const sections = {
   "mistakes-exams": ["Mistakes exams", "Review automatically generated student revision exams and their results.", "exams", "id,title,status,duration_minutes,created_at"],
   videos: ["Lesson videos", "Manage internal lesson playback.", "lesson_videos", "id,title,status,lesson_name,education_system,american_category,national_grade,created_at"],
   materials: ["Material Books", "Manage assigned books and learning resources.", "materials", "id,title,status,material_type,education_system,american_category,national_grade,created_at"],
+  "study-notes": ["Study Notes", "Manage assigned study notes and learning resources.", "materials", "id,title,status,material_type,education_system,american_category,national_grade,created_at"],
   activity: ["Recent activity", "Review platform actions.", "audit_logs", "id,action,entity_type,created_at"],
 } as const;
 
@@ -29,6 +30,7 @@ const nav = [
   ["Exams", "exams", BookOpen], ["Mistakes exams", "mistakes-exams", Brain],
   ["Random exam", "exams/random", Shuffle], ["Exam from old questions", "exams/from-bank", Library],
   ["Lesson videos", "videos", PlayCircle], ["Material Books", "materials", FileText],
+  ["Study Notes", "study-notes", FileText],
 ] as const;
 
 export default async function SectionPage({ params }: { params: Promise<{ role: string; section: string }> }) {
@@ -68,9 +70,11 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
   } else {
     let query = supabase.from(table).select(select).order("created_at", { ascending: false }).limit(50);
     if (section === "students" && role === "admin") query = query.eq("role", "student");
-    else if (role === "teacher" && ["exams", "mistakes-exams", "videos", "materials", "invitation-codes"].includes(section)) query = query.eq("teacher_id", user.id);
+    else if (role === "teacher" && ["exams", "mistakes-exams", "videos", "materials", "study-notes", "invitation-codes"].includes(section)) query = query.eq("teacher_id", user.id);
     if (section === "exams") query = query.eq("kind", "standard");
     if (section === "mistakes-exams") query = query.eq("kind", "mistakes");
+    if (section === "materials") query = query.eq("resource_kind", "material_book");
+    if (section === "study-notes") query = query.eq("resource_kind", "study_note");
     const { data } = await query;
     rows = (data ?? []) as unknown as Record<string, unknown>[];
   }
@@ -80,12 +84,14 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
   const createExam = role === "teacher" && section === "exams";
   const createVideo = role === "teacher" && section === "videos";
   const createMaterial = role === "teacher" && section === "materials";
+  const createStudyNote = role === "teacher" && section === "study-notes";
   const reviewExam = role === "teacher" && ["exams", "mistakes-exams"].includes(section);
   const action = createTeacher ? <Link className="button small" href="/admin/teachers/new">Add teacher</Link>
     : generateCode ? <Link className="button small" href="/teacher/invitation-codes/new">Generate code</Link>
     : createExam ? <Link className="button small" href="/teacher/exams/new">Add exam</Link>
     : createVideo ? <Link className="button small" href="/teacher/videos/new">Add video</Link>
-    : createMaterial ? <Link className="button small" href="/teacher/materials/new">Add material book</Link> : null;
+    : createMaterial ? <Link className="button small" href="/teacher/materials/new">Add material book</Link>
+    : createStudyNote ? <Link className="button small" href="/teacher/study-notes/new">Add study note</Link> : null;
 
   return <main className="app-frame">
     <aside>
@@ -103,7 +109,7 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
               <div>
                 <b>{String(row.display_name ?? row.full_name ?? row.title ?? row.code_masked ?? row.action ?? "Record")}</b>
                 <small>{status === "archived" ? "Hidden" : String(row.status ?? row.entity_type ?? row.biography ?? (row.is_active === true ? "Active" : "Inactive"))}{row.duration_minutes ? ` · ${row.duration_minutes} minutes` : ""}</small>
-                {["invitation-codes","exams","videos","materials"].includes(section)&&<EducationTargetBadge educationSystem={row.education_system} americanCategory={row.american_category} nationalGrade={row.national_grade}/>} 
+                {["invitation-codes","exams","videos","materials","study-notes"].includes(section)&&<EducationTargetBadge educationSystem={row.education_system} americanCategory={row.american_category} nationalGrade={row.national_grade}/>}
                 {section === "mistakes-exams" && Boolean(row.student_name) && <small>Student: {String(row.student_name)} · {Boolean(row.visible) ? "Visible" : "Hidden"}</small>}
               </div>
               <div className="record-actions">

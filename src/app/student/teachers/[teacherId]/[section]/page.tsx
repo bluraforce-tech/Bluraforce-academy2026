@@ -18,7 +18,7 @@ type Item = {
   viewLimitReached?: boolean;
   americanCategory?: string | null;
 };
-type Portal = { exams: Item[]; videos: Item[]; materials: Item[] };
+type Portal = { exams: Item[]; videos: Item[]; materials: Item[]; studyNotes: Item[] };
 type Attempt = {
   id: string;
   assignment_id: string;
@@ -31,6 +31,7 @@ const labels = {
   exams: { title: "Exams", description: "Assessments assigned by this teacher.", icon: BookOpen },
   videos: { title: "Lesson videos", description: "Lessons available from this teacher.", icon: PlayCircle },
   materials: { title: "Material Books", description: "Books and learning resources assigned by this teacher.", icon: FileText },
+  "study-notes": { title: "Study Notes", description: "Study notes and learning resources assigned by this teacher.", icon: FileText },
 } as const;
 const examErrors: Record<string, string> = {
   attempts: "You have reached the maximum number of attempts for this exam.",
@@ -70,11 +71,12 @@ export default async function PortalSection({
 
   const portal = raw as Portal;
   const renderedAt = Date.parse(new Date().toISOString());
-  const key = section as keyof Portal;
+  const key = (section==="study-notes"?"studyNotes":section) as keyof Portal;
   const {data:profile}=await supabase.from("student_profiles").select("education_system").eq("user_id",user.id).single();
   const american=profile?.education_system==="american";
-  const items = american ? portal[key].filter(item=>item.americanCategory===category) : portal[key];
-  const config = labels[key];
+  const sectionItems=portal[key]??[];
+  const items = american ? sectionItems.filter(item=>item.americanCategory===category) : sectionItems;
+  const config = labels[section as keyof typeof labels];
   const Icon = config.icon;
   const attemptsByAssignment = new Map<string, Attempt>();
 
@@ -165,7 +167,7 @@ export default async function PortalSection({
               </article>
             );
           }
-          if (key === "materials") return <Link className="activity" href={`/student/materials/${item.assignmentId}?teacherId=${teacherId}${american?`&category=${category}`:""}`} key={item.assignmentId}>{body}<span>Open</span></Link>;
+          if (key === "materials"||key === "studyNotes") return <Link className="activity" href={`/student/${key==="studyNotes"?"study-notes":"materials"}/${item.assignmentId}?teacherId=${teacherId}${american?`&category=${category}`:""}`} key={item.assignmentId}>{body}<span>Open</span></Link>;
           return <article className="activity" key={item.assignmentId}>{body}</article>;
         })}
       </section>

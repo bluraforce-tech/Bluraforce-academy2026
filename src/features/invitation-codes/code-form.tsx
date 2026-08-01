@@ -20,7 +20,7 @@ export function InvitationCodeForm() {
 
   return (
     <form action={action} className="panel teacher-form">
-      <EducationTargetSelector />
+      <EducationTargetSelector selectAmericanCategory={false} />
       <div className="field">
         <label>Teacher access duration</label>
         <div className="fixed-duration">
