@@ -9,7 +9,7 @@ import {americanCategoryLabel,educationSystemLabel,nationalGradeLabel} from "@/l
 import { EducationTargetSelector } from "@/components/education-target-selector";
 import { selectTeacherEnvironment } from "@/features/teachers/environment-actions";
 
-const nav=[["Dashboard","dashboard",LayoutDashboard],["Teachers","teachers",GraduationCap],["Students","students",Users],["Invitation codes","invitation-codes",Ticket],["Question Bank","question-bank",Library],["Exams","exams",BookOpen],["Mistakes exams","mistakes-exams",Brain],["Create exam","exams/new",BookOpen],["Random exam","exams/random",Shuffle],["Exam from old questions","exams/from-bank",Library],["Lesson videos","videos",PlayCircle],["Material Books","materials",FileText]] as const;
+const nav=[["Dashboard","dashboard",LayoutDashboard],["Teachers","teachers",GraduationCap],["Students","students",Users],["Invitation codes","invitation-codes",Ticket],["Question Bank","question-bank",Library],["Assignments","assignments",Library],["Exams","exams",BookOpen],["Mistakes exams","mistakes-exams",Brain],["Create exam","exams/new",BookOpen],["Random exam","exams/random",Shuffle],["Exam from old questions","exams/from-bank",Library],["Lesson videos","videos",PlayCircle],["Material Books","materials",FileText]] as const;
 type Point={label:string;value:number};
 type TeacherRedemption={teacherId:string;name:string;total:number;thisMonth:number};
 type Analytics={dailyStudents:Point[];monthlyStudents:Point[];monthlyRedemptions:Point[];teacherRedemptions:TeacherRedemption[]};
@@ -71,7 +71,7 @@ export default async function Dashboard({params}:{params:Promise<{role:string}>}
  const visibleNav=nav.filter(([label])=>
   role==="admin"
    ? adminNavItems.has(label)
-   : label!=="Teachers"
+   : label!=="Teachers"&&(teacherTarget?.educationSystem==="american"?label!=="Question Bank":label!=="Assignments")
  );
  return <main className="app-frame">
   <aside><Link href="/" className="brand"><span className="brand-mark"><GraduationCap/></span>Academy</Link><nav>{visibleNav.map(([label,path,Icon],i)=><Link key={label} className={i===0?"active":""} href={`/${role}/${path}`}><Icon size={19}/>{label}</Link>)}</nav><form action={logout}><button className="logout" type="submit"><LogOut size={18}/>Sign out</button></form></aside>

@@ -15,7 +15,7 @@ type Question = {
 type Props = {
   attemptId: string;
   teacherId: string;
-  returnSection: "exams" | "mistakes-exams" | "activities";
+  returnSection: string;
   untimed?: boolean;
   expiresAt: string;
   serverNow: string;
@@ -64,7 +64,7 @@ export function ExamAttempt({
             if (!response.ok) {
               throw new Error(result?.message ?? "Unable to submit the exam.");
             }
-            router.push(`/student/teachers/${teacherId}/${returnSection}?submitted=1`);
+            router.push(`/student/teachers/${teacherId}/${returnSection}${returnSection.includes("?")?"&":"?"}submitted=1`);
           })
           .catch((error) => {
             if (error.name !== "AbortError") {
@@ -113,7 +113,7 @@ export function ExamAttempt({
       if (!response.ok) {
         throw new Error(result?.message ?? "Unable to submit the exam.");
       }
-      router.push(`/student/teachers/${teacherId}/${returnSection}?submitted=1`);
+      router.push(`/student/teachers/${teacherId}/${returnSection}${returnSection.includes("?")?"&":"?"}submitted=1`);
     } catch (error) {
       setSubmitError(
         error instanceof Error ? error.message : "Unable to submit the exam.",
@@ -125,6 +125,12 @@ export function ExamAttempt({
   const closed = status !== "in_progress";
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;
+  const imageQuestions = new Map<string, number[]>();
+  exam.questions.forEach((question, index) => {
+    if (question.imageUrl) imageQuestions.set(question.imageUrl, [...(imageQuestions.get(question.imageUrl) ?? []), index + 1]);
+  });
+  const sharedImages = [...imageQuestions.entries()].filter(([, numbers]) => numbers.length > 1);
+  const sharedImageUrls = new Set(sharedImages.map(([url]) => url));
 
   return (
     <main className="attempt-page">
@@ -143,6 +149,13 @@ export function ExamAttempt({
         </div>}
       </header>
 
+      {sharedImages.map(([url, numbers]) => (
+        <section className="panel shared-question-stimulus" key={url}>
+          <div className="shared-question-label">Use this page for questions {numbers.join(", ")}</div>
+          <div className="question-media-page"><img src={url} alt={`Shared page for questions ${numbers.join(", ")}`} /></div>
+        </section>
+      ))}
+
       {exam.questions.map((question, index) => (
         <section className="panel attempt-question" key={question.id}>
           <div className="question-number">
@@ -150,9 +163,11 @@ export function ExamAttempt({
             {saving === question.id && <span>Saving…</span>}
           </div>
           <h2>{question.text}</h2>
-          {question.imageUrl && <img src={question.imageUrl} alt="Question" />}
+          {question.imageUrl && !sharedImageUrls.has(question.imageUrl) && <div className="question-media-page"><img src={question.imageUrl} alt="Question" /></div>}
           <div className="attempt-choices">
-            {question.choices.map((choice) => (
+            {question.choices.map((choice,choiceIndex) => {
+              const letter=String.fromCharCode(65+choiceIndex);
+              return (
               <label key={choice.id}>
                 <input
                   type={question.multiple ? "checkbox" : "radio"}
@@ -161,9 +176,9 @@ export function ExamAttempt({
                   disabled={closed || submitting}
                   onChange={() => choose(question.id, choice.id, question.multiple)}
                 />
-                <span>{choice.text}</span>
+                <span><b className="student-choice-letter">{letter}</b>{choice.text!==letter&&choice.text}</span>
               </label>
-            ))}
+            )})}
           </div>
         </section>
       ))}

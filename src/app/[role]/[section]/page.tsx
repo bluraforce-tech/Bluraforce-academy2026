@@ -6,6 +6,7 @@ import { revokeInvitationCode } from "@/features/invitation-codes/actions";
 import { toggleExamVisibility, toggleMistakesExamVisibility } from "@/features/exams/actions";
 import { DeleteExamForm } from "@/components/delete-exam-form";
 import { EducationTargetBadge } from "@/components/education-target-badge";
+import { getTeacherEducationTarget } from "@/lib/teacher-education-context";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ const nav = [
   ["Dashboard", "dashboard", LayoutDashboard], ["Teachers", "teachers", GraduationCap],
   ["Students", "students", Users], ["Invitation codes", "invitation-codes", Ticket],
   ["Question Bank", "question-bank", Library],
+  ["Assignments", "assignments", Library],
   ["Exams", "exams", BookOpen], ["Mistakes exams", "mistakes-exams", Brain],
   ["Random exam", "exams/random", Shuffle], ["Exam from old questions", "exams/from-bank", Library],
   ["Lesson videos", "videos", PlayCircle], ["Material Books", "materials", FileText],
@@ -37,6 +39,7 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
   if (!user) redirect(`/auth/${role}/login`);
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== role) redirect("/");
+  const teacherTarget=role==="teacher"?await getTeacherEducationTarget():null;
 
   const [title, description, table, select] = sections[section as keyof typeof sections];
   let rows: Record<string, unknown>[] = [];
@@ -87,7 +90,7 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
   return <main className="app-frame">
     <aside>
       <Link href="/" className="brand"><span className="brand-mark"><GraduationCap /></span>Academy</Link>
-      <nav>{nav.filter(([label]) => role === "admin" ? ["Dashboard","Teachers","Students"].includes(label) : label !== "Teachers").map(([label, path, Icon]) => <Link key={path} className={path === section ? "active" : ""} href={`/${role}/${path}`}><Icon size={19} />{label}</Link>)}</nav>
+      <nav>{nav.filter(([label]) => role === "admin" ? ["Dashboard","Teachers","Students"].includes(label) : label !== "Teachers"&&(teacherTarget?.educationSystem==="american"?label!=="Question Bank":label!=="Assignments")).map(([label, path, Icon]) => <Link key={path} className={path === section ? "active" : ""} href={`/${role}/${path}`}><Icon size={19} />{label}</Link>)}</nav>
     </aside>
     <section className="app-content">
       <Link className="back-link" href={`/${role}/dashboard`}><ArrowLeft size={16} />Back to dashboard</Link>

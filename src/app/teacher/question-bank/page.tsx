@@ -13,11 +13,11 @@ export default async function QuestionBankPage({searchParams}: {searchParams: Pr
   if (!user) redirect("/auth/teacher/login");
   const target = await getTeacherEducationTarget();
   if (!target) redirect("/teacher/dashboard?error=environment-required");
+  if (target.educationSystem === "american") redirect("/teacher/assignments");
 
   let unitsQuery = supabase.from("question_bank_units").select("id,title,description,question_bank_questions(id)")
     .eq("teacher_id", user.id).eq("education_system", target.educationSystem).order("created_at", {ascending: false});
   unitsQuery = target.educationSystem === "national" ? unitsQuery.eq("national_grade", target.nationalGrade) : unitsQuery.is("national_grade", null);
-  if(target.educationSystem==="american")unitsQuery=unitsQuery.eq("american_category",target.americanCategory);
   const {data: units} = await unitsQuery;
 
   return <main className="app-content question-bank-page">
