@@ -5,23 +5,25 @@ import { createClient } from "@/lib/supabase/server";
 import { revokeInvitationCode } from "@/features/invitation-codes/actions";
 import { toggleExamVisibility, toggleMistakesExamVisibility } from "@/features/exams/actions";
 import { DeleteExamForm } from "@/components/delete-exam-form";
+import { EducationTargetBadge } from "@/components/education-target-badge";
 
 export const dynamic = "force-dynamic";
 
 const sections = {
   teachers: ["Teachers", "Manage teacher accounts.", "teacher_profiles", "user_id,display_name,biography,is_active,created_at"],
   students: ["Students", "View students available to your role.", "profiles", "id,full_name,created_at"],
-  "invitation-codes": ["Invitation codes", "Review secure enrolment codes.", "student_invitation_codes", "id,code_masked,status,expires_at,access_duration_days,created_at"],
-  exams: ["Exams", "Create, publish, assign, and review assessments.", "exams", "id,title,status,duration_minutes,created_at"],
+  "invitation-codes": ["Invitation codes", "Review secure enrolment codes.", "student_invitation_codes", "id,code_masked,status,expires_at,access_duration_days,education_system,american_category,national_grade,created_at"],
+  exams: ["Exams", "Create, publish, assign, and review assessments.", "exams", "id,title,status,duration_minutes,education_system,american_category,national_grade,created_at"],
   "mistakes-exams": ["Mistakes exams", "Review automatically generated student revision exams and their results.", "exams", "id,title,status,duration_minutes,created_at"],
-  videos: ["Lesson videos", "Manage internal lesson playback.", "lesson_videos", "id,title,status,lesson_name,created_at"],
-  materials: ["Material Books", "Manage assigned books and learning resources.", "materials", "id,title,status,material_type,created_at"],
+  videos: ["Lesson videos", "Manage internal lesson playback.", "lesson_videos", "id,title,status,lesson_name,education_system,american_category,national_grade,created_at"],
+  materials: ["Material Books", "Manage assigned books and learning resources.", "materials", "id,title,status,material_type,education_system,american_category,national_grade,created_at"],
   activity: ["Recent activity", "Review platform actions.", "audit_logs", "id,action,entity_type,created_at"],
 } as const;
 
 const nav = [
   ["Dashboard", "dashboard", LayoutDashboard], ["Teachers", "teachers", GraduationCap],
   ["Students", "students", Users], ["Invitation codes", "invitation-codes", Ticket],
+  ["Question Bank", "question-bank", Library],
   ["Exams", "exams", BookOpen], ["Mistakes exams", "mistakes-exams", Brain],
   ["Random exam", "exams/random", Shuffle], ["Exam from old questions", "exams/from-bank", Library],
   ["Lesson videos", "videos", PlayCircle], ["Material Books", "materials", FileText],
@@ -98,6 +100,7 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
               <div>
                 <b>{String(row.display_name ?? row.full_name ?? row.title ?? row.code_masked ?? row.action ?? "Record")}</b>
                 <small>{status === "archived" ? "Hidden" : String(row.status ?? row.entity_type ?? row.biography ?? (row.is_active === true ? "Active" : "Inactive"))}{row.duration_minutes ? ` · ${row.duration_minutes} minutes` : ""}</small>
+                {["invitation-codes","exams","videos","materials"].includes(section)&&<EducationTargetBadge educationSystem={row.education_system} americanCategory={row.american_category} nationalGrade={row.national_grade}/>} 
                 {section === "mistakes-exams" && Boolean(row.student_name) && <small>Student: {String(row.student_name)} · {Boolean(row.visible) ? "Visible" : "Hidden"}</small>}
               </div>
               <div className="record-actions">

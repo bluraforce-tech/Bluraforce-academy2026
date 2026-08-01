@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import {SessionHistoryGuard} from "@/components/session-history-guard";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://bluraforce-academy2026.vercel.app"),
@@ -31,5 +32,5 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" dir="ltr"><body>{children}</body></html>;
+  return <html lang="en" dir="ltr"><body><SessionHistoryGuard/>{children}</body></html>;
 }

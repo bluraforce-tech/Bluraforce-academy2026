@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { env } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { parseEducationTarget } from "@/lib/education-target";
 
 export type CodeState={code?:string;error?:string};
 const FIXED_ACCESS_DURATION_DAYS=30;
@@ -25,7 +26,10 @@ async function requireTeacher(){
  return {supabase,user};
 }
 export async function generateInvitationCode(_:CodeState,_formData:FormData):Promise<CodeState>{
- void _;void _formData;
+ void _;
+ const parsedTarget=parseEducationTarget({educationSystem:_formData.get("educationSystem"),americanCategory:_formData.get("americanCategory"),nationalGrade:_formData.get("nationalGrade")});
+ if(!parsedTarget.success)return {error:parsedTarget.error.issues[0]?.message??"Please select an educational system."};
+ const target=parsedTarget.data;
  const {supabase,user}=await requireTeacher();
  for(let attempt=0;attempt<5;attempt++){
    const code=makeCode(),codeHash=hashCode(code);
@@ -33,6 +37,7 @@ export async function generateInvitationCode(_:CodeState,_formData:FormData):Pro
      code_hash:codeHash,code_masked:`••••-${code.slice(-4)}`,teacher_id:user.id,
      created_by:user.id,status:"active",expires_at:new Date(Date.now()+2*24*60*60*1000).toISOString(),
      access_duration_days:FIXED_ACCESS_DURATION_DAYS,
+     education_system:target.educationSystem,national_grade:target.nationalGrade,american_category:target.americanCategory,
    }).select("id").single();
    if(!error&&data){
      await supabase.from("audit_logs").insert({actor_id:user.id,actor_role:"teacher",action:"code.generated",entity_type:"invitation_code",entity_id:data.id});
@@ -63,7 +68,7 @@ export async function redeemInvitationCode(formData:FormData){
  const codeHash=hashCode(input.data.code.replace(/[^A-Za-z0-9]/g,"").toUpperCase());
  const {error}=await supabase.rpc("redeem_invitation_code",{p_teacher_id:input.data.teacherId,p_code_hash:codeHash});
  if(error){
-   const reason=error.message.includes("wrong_teacher")?"wrong-teacher":error.message.includes("expired")?"expired":error.message.includes("unavailable")?"used":"invalid";
+   const reason=error.message.includes("wrong_teacher")?"wrong-teacher":error.message.includes("education_target_mismatch")?"classification":error.message.includes("expired")?"expired":error.message.includes("unavailable")?"used":"invalid";
    redirect(`/student/teachers?error=${reason}`);
  }
  revalidatePath("/student/teachers");

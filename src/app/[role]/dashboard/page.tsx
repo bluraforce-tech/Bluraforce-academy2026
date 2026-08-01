@@ -4,8 +4,12 @@ import { BookOpen,Brain,FileText,GraduationCap,LayoutDashboard,Library,LogOut,Pl
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/features/auth/actions";
 import { AdminGrowthAnalytics } from "@/components/admin-growth-analytics";
+import { getTeacherEducationTarget } from "@/lib/teacher-education-context";
+import {americanCategoryLabel,educationSystemLabel,nationalGradeLabel} from "@/lib/education-target";
+import { EducationTargetSelector } from "@/components/education-target-selector";
+import { selectTeacherEnvironment } from "@/features/teachers/environment-actions";
 
-const nav=[["Dashboard","dashboard",LayoutDashboard],["Teachers","teachers",GraduationCap],["Students","students",Users],["Invitation codes","invitation-codes",Ticket],["Exams","exams",BookOpen],["Mistakes exams","mistakes-exams",Brain],["Create exam","exams/new",BookOpen],["Random exam","exams/random",Shuffle],["Exam from old questions","exams/from-bank",Library],["Lesson videos","videos",PlayCircle],["Material Books","materials",FileText]] as const;
+const nav=[["Dashboard","dashboard",LayoutDashboard],["Teachers","teachers",GraduationCap],["Students","students",Users],["Invitation codes","invitation-codes",Ticket],["Question Bank","question-bank",Library],["Exams","exams",BookOpen],["Mistakes exams","mistakes-exams",Brain],["Create exam","exams/new",BookOpen],["Random exam","exams/random",Shuffle],["Exam from old questions","exams/from-bank",Library],["Lesson videos","videos",PlayCircle],["Material Books","materials",FileText]] as const;
 type Point={label:string;value:number};
 type TeacherRedemption={teacherId:string;name:string;total:number;thisMonth:number};
 type Analytics={dailyStudents:Point[];monthlyStudents:Point[];monthlyRedemptions:Point[];teacherRedemptions:TeacherRedemption[]};
@@ -14,6 +18,7 @@ export default async function Dashboard({params}:{params:Promise<{role:string}>}
  const supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();if(!user)redirect(`/auth/${role}/login`);
  const {data:profile}=await supabase.from("profiles").select("full_name,role").eq("id",user.id).single();if(profile?.role!==role)redirect("/");
  if(role==="student")redirect("/student/teachers");
+ const teacherTarget=role==="teacher"?await getTeacherEducationTarget():null;
  let stats:Array<[string,string|number]>=role==="teacher"?[["Enrolled students",0],["Active codes",0],["Exam completion","0%"],["Average score","0%"]]:[["Active teachers",0],["Students",0],["Enrollments",0],["Open alerts",0]];
  let adminAnalytics:Analytics|null=null;
  if(role==="teacher"){
@@ -61,6 +66,8 @@ export default async function Dashboard({params}:{params:Promise<{role:string}>}
   };
  }
  const adminNavItems=new Set(["Dashboard","Teachers","Students"]);
+ const welcomeName=profile.full_name.trim().split(/\s+/).slice(0,2).join(" ");
+ profile.full_name=welcomeName.replace(" ","\u00a0");
  const visibleNav=nav.filter(([label])=>
   role==="admin"
    ? adminNavItems.has(label)
@@ -69,7 +76,8 @@ export default async function Dashboard({params}:{params:Promise<{role:string}>}
  return <main className="app-frame">
   <aside><Link href="/" className="brand"><span className="brand-mark"><GraduationCap/></span>Academy</Link><nav>{visibleNav.map(([label,path,Icon],i)=><Link key={label} className={i===0?"active":""} href={`/${role}/${path}`}><Icon size={19}/>{label}</Link>)}</nav><form action={logout}><button className="logout" type="submit"><LogOut size={18}/>Sign out</button></form></aside>
   <section className="app-content">
-   <header><div><small>{role} workspace</small><h1>Welcome back, {profile.full_name.split(" ")[0]}</h1><p>Here&apos;s what&apos;s happening with your learning space today.</p></div><span className="user-badge">{profile.full_name.slice(0,2).toUpperCase()}</span></header>
+   <header><div><small>{role} workspace</small><h1>Welcome back, {profile.full_name.split(" ")[0]}</h1><p>{teacherTarget?`${educationSystemLabel(teacherTarget.educationSystem)}${teacherTarget.americanCategory?` · ${americanCategoryLabel(teacherTarget.americanCategory)}`:""}${teacherTarget.nationalGrade?` · ${nationalGradeLabel(teacherTarget.nationalGrade)}`:""} environment`:"Here’s what’s happening with your learning space today."}</p></div><span className="user-badge">{profile.full_name.slice(0,2).toUpperCase()}</span></header>
+   {role==="teacher"&&<form action={selectTeacherEnvironment} className="panel dashboard-environment"><div><h2>Teaching environment</h2><p>{teacherTarget?"New codes and content will use this selection.":"Choose an environment before creating content."}</p></div><EducationTargetSelector defaultEducationSystem={teacherTarget?.educationSystem??""} defaultAmericanCategory={teacherTarget?.americanCategory??""} defaultNationalGrade={teacherTarget?.nationalGrade??""}/><button className="button" type="submit">{teacherTarget?"Switch environment":"Set environment"}</button></form>}
    <div className="stat-grid">{stats.map(([label,value])=><article key={label}><small>{label}</small><strong>{value}</strong><span>Live data</span></article>)}</div>
    {adminAnalytics&&<AdminGrowthAnalytics {...adminAnalytics}/>}
    <div className="content-grid"><section className="panel"><div className="panel-head"><div><h2>Quick access</h2><p>Open your learning tools</p></div><Link href={`/${role}/activity`}>View activity</Link></div>{[["Lesson videos","videos"],["Exams","exams"],["Material Books","materials"]].map(([title,path],i)=><Link href={`/${role}/${path}`} className="activity" key={title}><span className="activity-icon">{i===0?<PlayCircle/>:i===1?<BookOpen/>:<FileText/>}</span><div><b>{title}</b><small>Open this section</small></div><span>Open</span></Link>)}</section><section className="panel"><div className="panel-head"><div><h2>Getting started</h2><p>Your next steps</p></div></div><div className="progress-row"><span>Complete your profile</span><b>Ready</b></div><div className="progress-row"><span>Explore available content</span><b>Open</b></div></section></div>

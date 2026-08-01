@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { createExam } from "./actions";
+import {QuestionImageUpload} from "@/components/question-image-upload";
 
 type Choice = { text: string; isCorrect: boolean };
 type Question = { text: string; imageUrl: string; points: number; choices: Choice[]; sourceId?: string };
@@ -56,7 +57,7 @@ export function ExamBuilder({ students = [], questionBank = [] }: { students?: A
       <div className="question-top"><b>Question {questionIndex + 1}</b>{questions.length > 1 && <button type="button" onClick={() => setQuestions((value) => value.filter((_, index) => index !== questionIndex))}><Trash2 /></button>}</div>
       <div className="field"><label>Question text</label><textarea value={question.text} onChange={(event) => changeQ(questionIndex, { text: event.target.value })} rows={3} required /></div>
       <div className="form-grid">
-        <div className="field"><label>Image URL</label><input type="url" value={question.imageUrl} onChange={(event) => changeQ(questionIndex, { imageUrl: event.target.value })} /></div>
+        <QuestionImageUpload value={question.imageUrl} fileName={`questionImage_${questionIndex}`} onChange={(imageUrl)=>changeQ(questionIndex,{imageUrl})}/>
         <div className="field"><label>Points</label><input type="number" min=".01" step=".01" value={question.points} onChange={(event) => changeQ(questionIndex, { points: Number(event.target.value) })} /></div>
       </div>
       <div className="choices">{question.choices.map((choice, choiceIndex) => <div className="choice-row" key={choiceIndex}>

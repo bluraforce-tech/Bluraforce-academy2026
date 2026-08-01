@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Choice = { id: string; text: string };
@@ -15,7 +15,8 @@ type Question = {
 type Props = {
   attemptId: string;
   teacherId: string;
-  returnSection: "exams" | "mistakes-exams";
+  returnSection: "exams" | "mistakes-exams" | "activities";
+  untimed?: boolean;
   expiresAt: string;
   serverNow: string;
   status: string;
@@ -32,6 +33,7 @@ export function ExamAttempt({
   status,
   exam,
   initialAnswers,
+  untimed = false,
 }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState(initialAnswers);
@@ -39,44 +41,11 @@ export function ExamAttempt({
   const [saving, setSaving] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [tabViolation, setTabViolation] = useState(false);
-  const leavingExam = useRef(false);
-  const processingViolation = useRef(false);
-  const pageIsUnloading = useRef(false);
   const deadline = useMemo(() => Date.parse(expiresAt), [expiresAt]);
   const serverBase = useMemo(() => Date.parse(serverNow), [serverNow]);
 
   useEffect(() => {
-    if (status !== "in_progress") return;
-    const markUnloading = () => { pageIsUnloading.current = true; };
-    const goToLogin = () => window.location.replace("/auth/student/login?error=exam-tab");
-    const leaveExam = () => {
-      if (document.visibilityState === "visible") {
-        if (leavingExam.current && !pageIsUnloading.current && !processingViolation.current) {
-          processingViolation.current = true;
-          setTabViolation(true);
-          setSubmitting(true);
-          fetch(`/api/exams/attempts/${attemptId}/leave`, {
-            method: "POST",
-            keepalive: true,
-          }).finally(goToLogin);
-        }
-        return;
-      }
-      if (leavingExam.current) return;
-      leavingExam.current = true;
-      setTabViolation(true);
-      setSubmitting(true);
-    };
-    window.addEventListener("beforeunload", markUnloading);
-    document.addEventListener("visibilitychange", leaveExam);
-    return () => {
-      window.removeEventListener("beforeunload", markUnloading);
-      document.removeEventListener("visibilitychange", leaveExam);
-    };
-  }, [attemptId, status]);
-
-  useEffect(() => {
+    if (untimed) return;
     const begun = performance.now();
     const controller = new AbortController();
     let submitted = false;
@@ -113,7 +82,7 @@ export function ExamAttempt({
       clearInterval(timer);
       controller.abort();
     };
-  }, [attemptId, deadline, router, serverBase, status, teacherId, returnSection]);
+  }, [attemptId, deadline, router, serverBase, status, teacherId, returnSection, untimed]);
 
   async function choose(questionId: string, choiceId: string, multiple: boolean) {
     const current = answers[questionId] ?? [];
@@ -159,20 +128,19 @@ export function ExamAttempt({
 
   return (
     <main className="attempt-page">
-      {tabViolation && <div className="exam-tab-lock" role="alert"><strong>Exam closed</strong><span>You switched away from the exam tab. Your attempt is being submitted and your session is signing out.</span></div>}
       <header className="attempt-header">
         <div>
           <small>Timed exam</small>
           <h1>{exam.title}</h1>
           <p>{exam.instructions}</p>
         </div>
-        <div className={`exam-timer ${remaining < 300 ? "warning" : ""}`}>
+        {!untimed&&<div className={`exam-timer ${remaining < 300 ? "warning" : ""}`}>
           <small>Time remaining</small>
           <strong>
             {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
           </strong>
           <span>Server controlled</span>
-        </div>
+        </div>}
       </header>
 
       {exam.questions.map((question, index) => (

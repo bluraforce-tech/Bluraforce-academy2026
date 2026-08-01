@@ -1,0 +1,4 @@
+import type {SupabaseClient} from "@supabase/supabase-js";
+import {randomUUID} from "crypto";
+const TYPES=new Map([["image/jpeg","jpg"],["image/png","png"],["image/webp","webp"],["image/gif","gif"]]);
+export async function uploadQuestionImage(supabase:SupabaseClient,userId:string,value:FormDataEntryValue|null){if(!(value instanceof File)||value.size===0)return null;if(value.size>3*1024*1024)throw new Error("image_size");const extension=TYPES.get(value.type);if(!extension)throw new Error("image_type");const path=`${userId}/${randomUUID()}.${extension}`,{error}=await supabase.storage.from("question-images").upload(path,value,{contentType:value.type,upsert:false,cacheControl:"31536000"});if(error)throw new Error("image_upload");return supabase.storage.from("question-images").getPublicUrl(path).data.publicUrl}

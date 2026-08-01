@@ -9,7 +9,7 @@ import { loginSchema,studentRegistrationSchema } from "./schemas";
 export async function login(formData:FormData){
   const parsed=loginSchema.safeParse(Object.fromEntries(formData));
   if(!parsed.success) redirect(`/auth/${formData.get("role")||"student"}/login?error=invalid`);
-  const supabase=await createClient();
+  const supabase=await createClient(parsed.data.role);
   const {data,error}=await supabase.auth.signInWithPassword({email:parsed.data.email,password:parsed.data.password});
   if(error||!data.user) redirect(`/auth/${parsed.data.role}/login?error=credentials`);
   const {data:profile}=await supabase.from("profiles").select("role").eq("id",data.user.id).single();
@@ -33,7 +33,7 @@ export async function registerStudent(formData:FormData){
   }
   const {error:profileError}=await admin.rpc("complete_student_registration",{p_user_id:user.user.id,p_full_name:d.fullName,p_age:d.age,p_address:d.address,p_mobile:d.mobile,p_guardian_mobile:d.guardianMobile,p_national_id_hash:hash,p_national_id_encrypted:encrypted,p_national_id_last4:d.nationalId.slice(-4)});
   if(profileError){await admin.auth.admin.deleteUser(user.user.id);redirect("/auth/student/register?error=identity")}
-  const supabase=await createClient();
+  const supabase=await createClient("student");
   const {error:signInError}=await supabase.auth.signInWithPassword({email:d.email,password:d.password});
   if(signInError)redirect("/auth/student/login?registered=1");
   redirect("/student/teachers");

@@ -48,7 +48,8 @@ export default async function AttemptPage({
     <ExamAttempt
       {...payload}
       teacherId={relation.exams.teacher_id}
-      returnSection={relation.exams.kind === "mistakes" ? "mistakes-exams" : "exams"}
+      returnSection={relation.exams.kind === "mistakes" ? "mistakes-exams" : ["self_practice","homework"].includes(relation.exams.kind) ? "activities" : "exams"}
+      untimed={["self_practice","homework"].includes(relation.exams.kind)}
       serverNow={new Date().toISOString()}
       initialAnswers={payload.answers ?? {}}
     />

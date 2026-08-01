@@ -24,6 +24,6 @@ export async function POST(
     });
   }
 
-  await supabase.auth.signOut();
-  return NextResponse.json({ signedOut: true, submitted: !error });
+  // Submit the attempt without destroying the student's application session.
+  return NextResponse.json({ submitted: !error });
 }

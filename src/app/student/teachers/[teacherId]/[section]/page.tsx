@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, BookOpen, FileText, GraduationCap, PlayCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { startAttempt } from "@/features/exams/actions";
+import { parseStudentAmericanCategory, withAmericanCategory } from "@/lib/student-american-category";
 
 type Item = {
   assignmentId?: string;
@@ -15,6 +16,7 @@ type Item = {
   countedViews?: number;
   remainingViews?: number | null;
   viewLimitReached?: boolean;
+  americanCategory?: string | null;
 };
 type Portal = { exams: Item[]; videos: Item[]; materials: Item[] };
 type Attempt = {
@@ -42,10 +44,11 @@ export default async function PortalSection({
   searchParams,
 }: {
   params: Promise<{ teacherId: string; section: string }>;
-  searchParams: Promise<{ error?: string; submitted?: string }>;
+  searchParams: Promise<{ error?: string; submitted?: string; category?: string }>;
 }) {
   const { teacherId, section } = await params;
   const query = await searchParams;
+  const category = parseStudentAmericanCategory(query.category);
   if (!(section in labels)) redirect(`/student/teachers/${teacherId}/dashboard`);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -68,7 +71,9 @@ export default async function PortalSection({
   const portal = raw as Portal;
   const renderedAt = Date.parse(new Date().toISOString());
   const key = section as keyof Portal;
-  const items = portal[key];
+  const {data:profile}=await supabase.from("student_profiles").select("education_system").eq("user_id",user.id).single();
+  const american=profile?.education_system==="american";
+  const items = american ? portal[key].filter(item=>item.americanCategory===category) : portal[key];
   const config = labels[key];
   const Icon = config.icon;
   const attemptsByAssignment = new Map<string, Attempt>();
@@ -95,7 +100,7 @@ export default async function PortalSection({
           <span className="brand-mark"><GraduationCap /></span>Academy
         </Link>
       </div>
-      <Link className="back-link" href={`/student/teachers/${teacherId}/dashboard`}>
+      <Link className="back-link" href={american?withAmericanCategory(`/student/teachers/${teacherId}/dashboard`,category):`/student/teachers/${teacherId}/dashboard`}>
         <ArrowLeft size={16} />Back to {teacher.display_name}
       </Link>
       <header>
@@ -160,7 +165,7 @@ export default async function PortalSection({
               </article>
             );
           }
-          if (key === "materials") return <Link className="activity" href={`/student/materials/${item.assignmentId}?teacherId=${teacherId}`} key={item.assignmentId}>{body}<span>Open</span></Link>;
+          if (key === "materials") return <Link className="activity" href={`/student/materials/${item.assignmentId}?teacherId=${teacherId}${american?`&category=${category}`:""}`} key={item.assignmentId}>{body}<span>Open</span></Link>;
           return <article className="activity" key={item.assignmentId}>{body}</article>;
         })}
       </section>

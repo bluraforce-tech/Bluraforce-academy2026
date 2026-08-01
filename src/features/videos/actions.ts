@@ -4,23 +4,25 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { extractYouTubeId } from "./youtube";
+import { requireTeacherEducationTarget } from "@/lib/teacher-education-context";
 
 const schema=z.object({
+ educationSystem:z.enum(["american","national"]).optional(),americanCategory:z.enum(["classified","sat","est"]).nullable().optional(),nationalGrade:z.enum(["sensor_1","sensor_2","sensor_3"]).nullable().optional(),
  title:z.string().trim().min(3).max(200),description:z.string().trim().max(2000),
  youtubeUrl:z.string().url(),lessonName:z.string().trim().max(200),categoryName:z.string().trim().max(200),
  maxViews:z.union([z.literal(""),z.coerce.number().int().positive().max(10000)]),
  availableFrom:z.string(),availableUntil:z.string(),publish:z.string().optional(),assignAll:z.string().optional(),
  studentIds:z.union([z.string().uuid(),z.array(z.string().uuid())]).optional(),
-}).refine(v=>!v.availableFrom||!v.availableUntil||Date.parse(v.availableUntil)>Date.parse(v.availableFrom),{message:"Invalid availability"});
+}).refine(v=>v.educationSystem===undefined||(v.educationSystem==="american"&&v.americanCategory!=null&&v.nationalGrade===null)||(v.educationSystem==="national"&&v.americanCategory===null&&v.nationalGrade!==null),{message:"Invalid education target"}).refine(v=>!v.availableFrom||!v.availableUntil||Date.parse(v.availableUntil)>Date.parse(v.availableFrom),{message:"Invalid availability"});
 export async function createLessonVideo(formData:FormData){
  const supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();if(!user)redirect("/auth/teacher/login");
- const raw=Object.fromEntries(formData);const ids=formData.getAll("studentIds").map(String);const parsed=schema.safeParse({...raw,studentIds:ids});
- if(!parsed.success)redirect("/teacher/videos/new?error=invalid");const input=parsed.data,videoId=extractYouTubeId(input.youtubeUrl);
+ const target=await requireTeacherEducationTarget(),raw=Object.fromEntries(formData);const ids=formData.getAll("studentIds").map(String);const parsed=schema.safeParse({...raw,...target,studentIds:ids});
+ if(!parsed.success||!parsed.data.educationSystem)redirect("/teacher/videos/new?error=invalid");const input=parsed.data,videoId=extractYouTubeId(input.youtubeUrl);
  if(!videoId)redirect("/teacher/videos/new?error=youtube");
  const {data:video,error}=await supabase.from("lesson_videos").insert({
   teacher_id:user.id,title:input.title,description:input.description||null,youtube_video_id:videoId,
   thumbnail_url:`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,lesson_name:input.lessonName||null,
-  category_name:input.categoryName||null,status:input.publish==="on"?"published":"draft",
+  category_name:input.categoryName||null,status:input.publish==="on"?"published":"draft",education_system:input.educationSystem,american_category:input.americanCategory,national_grade:input.nationalGrade,
  }).select("id").single();
  if(error||!video)redirect("/teacher/videos/new?error=create");
  if(input.publish==="on"){

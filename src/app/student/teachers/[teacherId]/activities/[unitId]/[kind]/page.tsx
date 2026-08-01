@@ -1,0 +1,15 @@
+import Link from "next/link";
+import {redirect} from "next/navigation";
+import {ArrowLeft,BookOpen,RotateCcw} from "lucide-react";
+import {createClient} from "@/lib/supabase/server";
+import {startAttempt} from "@/features/exams/actions";
+type Activity={assignmentId:string;unitId:string;unitTitle:string;title:string;kind:"self_practice"|"homework";deadline:string|null};
+type Attempt={id:string;assignment_id:string;status:string;score:number|null;attempt_number:number};
+export default async function ActivityList({params,searchParams}:{params:Promise<{teacherId:string;unitId:string;kind:string}>;searchParams:Promise<{submitted?:string;error?:string}>}){
+ const {teacherId,unitId,kind}=await params,q=await searchParams;if(!["self_practice","homework"].includes(kind))redirect(`/student/teachers/${teacherId}/activities/${unitId}`);
+ const s=await createClient(),{data:{user}}=await s.auth.getUser();if(!user)redirect("/auth/student/login");
+ const {data:raw,error}=await s.rpc("get_student_activities",{p_teacher_id:teacherId});if(error)redirect("/student/teachers?error=access");
+ const items=((raw??[]) as Activity[]).filter(x=>x.unitId===unitId&&x.kind===kind),ids=items.map(x=>x.assignmentId),{data:attempts}=ids.length?await s.from("exam_attempts").select("id,assignment_id,status,score,attempt_number").in("assignment_id",ids).order("attempt_number",{ascending:true}):{data:[]};
+ const latest=new Map(((attempts??[]) as Attempt[]).map(x=>[x.assignment_id,x])),label=kind==="homework"?"Homework":"Self Practice";
+ return <main className="app-content portal-section"><Link className="back-link" href={`/student/teachers/${teacherId}/activities/${unitId}`}><ArrowLeft/>Back to Unit</Link><header><div><small>{items[0]?.unitTitle??"Unit"}</small><h1>{label}</h1><p>{kind==="homework"?"Choose from the available homework modules.":"Practice as many times as you want."}</p></div></header>{q.submitted&&<p className="form-success">Activity submitted and graded.</p>}<section className="panel section-list">{items.map(item=>{const attempt=latest.get(item.assignmentId),done=attempt&&attempt.status!=="in_progress";return <article className="activity" key={item.assignmentId}><span className="activity-icon"><BookOpen/></span><div><b>{item.title}</b><small>{kind==="homework"?`Due ${new Date(item.deadline!).toLocaleString()}`:"Unlimited attempts · No deadline"}</small></div>{done?<div className="practice-result-actions"><span className="exam-score">Latest score: {attempt.score??0}</span>{kind==="self_practice"&&<form action={startAttempt}><input type="hidden" name="assignmentId" value={item.assignmentId}/><input type="hidden" name="teacherId" value={teacherId}/><button className="button secondary small"><RotateCcw size={16}/>Try again</button></form>}</div>:<form action={startAttempt}><input type="hidden" name="assignmentId" value={item.assignmentId}/><input type="hidden" name="teacherId" value={teacherId}/><button className="button small">{attempt?"Resume":"Start"}</button></form>}</article>})}{!items.length&&<div className="empty-state"><BookOpen/><h2>No {label} available</h2></div>}</section></main>;
+}

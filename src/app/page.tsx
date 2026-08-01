@@ -7,7 +7,7 @@ const features = [
   { icon: ShieldCheck, title: "Privacy by design", text: "Server validation and database row-level security isolate every teacher and student." },
 ];
 
-export default function Home() {
+export default async function Home() {
   return (
     <main>
       <nav className="nav shell">
@@ -20,7 +20,7 @@ export default function Home() {
           <h1>Learning that stays<br/><span>focused, personal, and secure.</span></h1>
           <p>One modern home for lessons, exams, revision, and learning materials—built around each student&apos;s progress.</p>
           <div className="hero-actions">
-            <Link href="/auth/student/register" className="button">I&apos;m a student <ArrowLeft size={18}/></Link>
+            <Link href="/auth/student/login" className="button">I&apos;m a student <ArrowLeft size={18}/></Link>
             <Link href="/auth/teacher/login" className="button secondary">I&apos;m a teacher</Link>
           </div>
           <div className="trust"><span><ShieldCheck size={17}/> Secure access</span><span><Users size={17}/> Teacher-led learning</span></div>
@@ -32,6 +32,13 @@ export default function Home() {
             <div className="preview-grid"><article><BookOpen/><span><b>3</b><small>Active exams</small></span></article><article><Video/><span><b>6</b><small>New lessons</small></span></article></div>
             <div className="next-lesson"><span className="play">▶</span><div><small>Continue learning</small><b>Introduction to electronics</b></div><span>24 min</span></div>
           </div>
+        </div>
+        <div className="hero-waves" aria-hidden="true">
+          <svg viewBox="0 0 1440 220" preserveAspectRatio="none">
+            <path className="wave wave-back" d="M0 95 C260 25 430 150 720 82 C980 20 1190 38 1440 105 L1440 220 L0 220 Z"><animate attributeName="d" dur="10s" repeatCount="indefinite" values="M0 95 C260 25 430 150 720 82 C980 20 1190 38 1440 105 L1440 220 L0 220 Z;M0 70 C230 145 470 30 730 98 C1010 170 1210 48 1440 82 L1440 220 L0 220 Z;M0 95 C260 25 430 150 720 82 C980 20 1190 38 1440 105 L1440 220 L0 220 Z"/></path>
+            <path className="wave wave-middle" d="M0 115 C250 170 470 40 735 100 C1000 160 1200 72 1440 88 L1440 220 L0 220 Z"><animate attributeName="d" dur="8s" repeatCount="indefinite" values="M0 115 C250 170 470 40 735 100 C1000 160 1200 72 1440 88 L1440 220 L0 220 Z;M0 92 C220 35 470 155 720 105 C970 55 1200 140 1440 70 L1440 220 L0 220 Z;M0 115 C250 170 470 40 735 100 C1000 160 1200 72 1440 88 L1440 220 L0 220 Z"/></path>
+            <path className="wave wave-front" d="M0 130 C260 78 470 178 720 125 C970 72 1190 150 1440 105 L1440 220 L0 220 Z"><animate attributeName="d" dur="7s" repeatCount="indefinite" values="M0 130 C260 78 470 178 720 125 C970 72 1190 150 1440 105 L1440 220 L0 220 Z;M0 112 C240 175 500 70 740 135 C980 198 1220 72 1440 120 L1440 220 L0 220 Z;M0 130 C260 78 470 178 720 125 C970 72 1190 150 1440 105 L1440 220 L0 220 Z"/></path>
+          </svg>
         </div>
       </section>
       <section className="feature-section shell">
