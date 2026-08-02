@@ -104,7 +104,9 @@ export async function createRandomPastExam(formData:FormData){
  const target=await requireTeacherEducationTarget();
  const input=z.object({title:z.string().trim().min(3).max(200),description:z.string().max(2000),instructions:z.string().max(5000),durationMinutes:z.coerce.number().int().min(1).max(600),questionCount:z.coerce.number().int().min(1).max(100),startsAt:z.string(),endsAt:z.string(),maxAttempts:z.coerce.number().int().min(1).max(20),passingScore:z.string(),assignAll:z.string().optional(),studentIds:z.array(z.string().uuid())}).safeParse({...Object.fromEntries(formData),studentIds:formData.getAll("studentIds")});
  if(!input.success)redirect("/teacher/exams/random?error=invalid");
- const {data:examRows}=await supabase.from("exams").select("id,title,questions(id,text,image_url,points,position,question_choices(text,is_correct,position))").eq("teacher_id",user.id).eq("kind","standard");
+ let sourceQuery=supabase.from("exams").select("id,title,questions(id,text,image_url,points,position,question_choices(text,is_correct,position))").eq("teacher_id",user.id).eq("kind","standard").eq("education_system",target.educationSystem);
+ sourceQuery=target.educationSystem==="american"?sourceQuery.eq("american_category",target.americanCategory):sourceQuery.eq("national_grade",target.nationalGrade);
+ const {data:examRows}=await sourceQuery;
  type Candidate={category:string;text:string;imageUrl:string;points:number;choices:Array<{text:string;isCorrect:boolean}>};
  const groups=new Map<string,Candidate[]>();
  for(const source of examRows??[])for(const question of source.questions??[]){const candidate={category:source.id,text:question.text,imageUrl:question.image_url??"",points:Number(question.points),choices:(question.question_choices??[]).sort((a,b)=>a.position-b.position).map(choice=>({text:choice.text,isCorrect:choice.is_correct}))};groups.set(source.id,[...(groups.get(source.id)??[]),candidate])}

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { updateLessonVideo } from "@/features/videos/actions";
+import { requireTeacherEducationTarget } from "@/lib/teacher-education-context";
 
 const errors:Record<string,string>={
  invalid:"Check all video and availability fields.",
@@ -18,8 +19,10 @@ function local(value:string|null){
 }
 export default async function Page({params,searchParams}:{params:Promise<{videoId:string}>;searchParams:Promise<{error?:string}>}){
  const {videoId}=await params,query=await searchParams,supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();
- if(!user)redirect("/auth/teacher/login");
- const {data:video}=await supabase.from("lesson_videos").select("id,title,description,youtube_video_id,lesson_name,category_name,status").eq("id",videoId).eq("teacher_id",user.id).single();
+ if(!user)redirect("/auth/teacher/login");const target=await requireTeacherEducationTarget();
+ let videoQuery=supabase.from("lesson_videos").select("id,title,description,youtube_video_id,lesson_name,category_name,status").eq("id",videoId).eq("teacher_id",user.id).eq("education_system",target.educationSystem);
+ videoQuery=target.educationSystem==="american"?videoQuery.eq("american_category",target.americanCategory):videoQuery.eq("national_grade",target.nationalGrade);
+ const {data:video}=await videoQuery.single();
  if(!video)redirect("/teacher/videos");
  const [{data:enrollments},{data:assignments}]=await Promise.all([
   supabase.from("teacher_student_enrollments").select("student_id").eq("teacher_id",user.id).eq("status","active"),

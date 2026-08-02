@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check, CheckCircle2, Clock3, Send } from "lucide-react";
 
 type Choice = { id: string; text: string };
 type Question = {
@@ -41,6 +42,7 @@ export function ExamAttempt({
   const [saving, setSaving] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const deadline = useMemo(() => Date.parse(expiresAt), [expiresAt]);
   const serverBase = useMemo(() => Date.parse(serverNow), [serverNow]);
 
@@ -93,16 +95,25 @@ export function ExamAttempt({
       : [choiceId];
     setAnswers((value) => ({ ...value, [questionId]: next }));
     setSaving(questionId);
-    await fetch(`/api/exams/attempts/${attemptId}/answers`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ questionId, choiceIds: next }),
-    });
-    setSaving(null);
+    setSaveError(null);
+    try {
+      const response = await fetch(`/api/exams/attempts/${attemptId}/answers`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ questionId, choiceIds: next }),
+      });
+      if (!response.ok) throw new Error("Your answer could not be saved.");
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Your answer could not be saved.");
+    } finally {
+      setSaving(null);
+    }
   }
 
   async function submitExam() {
     if (submitting) return;
+    const unanswered = exam.questions.filter((question) => !(answers[question.id]?.length)).length;
+    if (unanswered > 0 && !window.confirm(`You still have ${unanswered} unanswered question${unanswered === 1 ? "" : "s"}. Submit anyway?`)) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -123,6 +134,8 @@ export function ExamAttempt({
   }
 
   const closed = status !== "in_progress";
+  const answeredCount = exam.questions.filter((question) => (answers[question.id]?.length ?? 0) > 0).length;
+  const progress = exam.questions.length ? Math.round((answeredCount / exam.questions.length) * 100) : 0;
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;
   const imageQuestions = new Map<string, number[]>();
@@ -136,18 +149,36 @@ export function ExamAttempt({
     <main className="attempt-page">
       <header className="attempt-header">
         <div>
-          <small>Timed exam</small>
+          <small>{untimed ? "Practice exam" : "Timed exam"}</small>
           <h1>{exam.title}</h1>
           <p>{exam.instructions}</p>
         </div>
         {!untimed&&<div className={`exam-timer ${remaining < 300 ? "warning" : ""}`}>
-          <small>Time remaining</small>
+          <small><Clock3 size={14} /> Time remaining</small>
           <strong>
             {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
           </strong>
           <span>Server controlled</span>
         </div>}
       </header>
+
+      <aside className="exam-sidebar">
+      <section className="exam-progress panel" aria-label="Exam progress">
+        <div className="exam-progress-copy">
+          <div><CheckCircle2 size={18} /><strong>{answeredCount} of {exam.questions.length} answered</strong></div>
+          <span>{progress}% complete</span>
+        </div>
+        <div className="exam-progress-track" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
+        <nav className="question-jump" aria-label="Jump to a question">
+          {exam.questions.map((question, index) => <a className={(answers[question.id]?.length ?? 0) > 0 ? "answered" : ""} href={`#question-${index + 1}`} key={question.id} aria-label={`Question ${index + 1}${(answers[question.id]?.length ?? 0) > 0 ? ", answered" : ", unanswered"}`}>{(answers[question.id]?.length ?? 0) > 0 && <Check size={12} />}{index + 1}</a>)}
+        </nav>
+        {saveError && <p className="inline-save-error" role="alert">{saveError} Select the answer again to retry.</p>}
+      </section>
+      <div className="attempt-submit sidebar-submit">
+        {submitError && <p role="alert" className="form-error">{submitError}</p>}
+        {closed ? <p>This attempt has been submitted.</p> : <button className="button" disabled={submitting || saving !== null || closed} onClick={submitExam}><Send size={17} />{submitting ? "Submitting…" : "Submit exam"}</button>}
+      </div>
+      </aside>
 
       {sharedImages.map(([url, numbers]) => (
         <section className="panel shared-question-stimulus" key={url}>
@@ -157,12 +188,13 @@ export function ExamAttempt({
       ))}
 
       {exam.questions.map((question, index) => (
-        <section className="panel attempt-question" key={question.id}>
+        <section className="panel attempt-question" id={`question-${index + 1}`} key={question.id}>
           <div className="question-number">
             Question {index + 1} · {question.points} points{" "}
             {saving === question.id && <span>Saving…</span>}
           </div>
           <h2>{question.text}</h2>
+          {saving !== question.id && (answers[question.id]?.length ?? 0) > 0 && <span className="answer-saved"><Check size={13} /> Answer saved</span>}
           {question.imageUrl && !sharedImageUrls.has(question.imageUrl) && <div className="question-media-page"><img src={question.imageUrl} alt="Question" /></div>}
           <div className="attempt-choices">
             {question.choices.map((choice,choiceIndex) => {
@@ -183,24 +215,6 @@ export function ExamAttempt({
         </section>
       ))}
 
-      <div className="attempt-submit">
-        {submitError && (
-          <p role="alert" className="form-error">
-            {submitError}
-          </p>
-        )}
-        {closed ? (
-          <p>This attempt has been submitted.</p>
-        ) : (
-          <button
-            className="button"
-            disabled={submitting || saving !== null}
-            onClick={submitExam}
-          >
-            {submitting ? "Submitting…" : "Submit exam"}
-          </button>
-        )}
-      </div>
     </main>
   );
 }

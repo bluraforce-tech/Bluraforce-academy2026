@@ -14,7 +14,7 @@ export default async function TeacherUnitPage({params}: {params: Promise<{unitId
   if (!target) redirect("/teacher/dashboard?error=environment-required");
   let unitQuery = supabase.from("question_bank_units").select("id,title,description,question_bank_questions(id)").eq("id", unitId).eq("teacher_id", user.id).eq("education_system", target.educationSystem);
   unitQuery = target.educationSystem === "national" ? unitQuery.eq("national_grade", target.nationalGrade) : unitQuery.is("national_grade", null);
-  if(target.educationSystem==="american")unitQuery=unitQuery.eq("american_category",target.americanCategory);
+  unitQuery=target.educationSystem==="american"?unitQuery.eq("american_category",target.americanCategory):unitQuery.eq("national_grade",target.nationalGrade);
   const [{data: unit}, {data: activities}] = await Promise.all([unitQuery.single(), supabase.from("exams").select("id,kind").eq("teacher_id", user.id).eq("source_unit_id", unitId).in("kind", ["self_practice", "homework"])]);
   if (!unit) redirect("/teacher/question-bank");
   const practice = activities?.filter(item => item.kind === "self_practice").length ?? 0;

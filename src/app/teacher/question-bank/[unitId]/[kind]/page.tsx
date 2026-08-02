@@ -18,7 +18,7 @@ export default async function TeacherActivityGroupPage({params, searchParams}: {
   if (!target) redirect("/teacher/dashboard?error=environment-required");
   let unitQuery = supabase.from("question_bank_units").select("id,title,question_bank_questions(id,text,points,position)").eq("id", unitId).eq("teacher_id", user.id).eq("education_system", target.educationSystem);
   unitQuery = target.educationSystem === "national" ? unitQuery.eq("national_grade", target.nationalGrade) : unitQuery.is("national_grade", null);
-  if(target.educationSystem==="american")unitQuery=unitQuery.eq("american_category",target.americanCategory);
+  unitQuery=target.educationSystem==="american"?unitQuery.eq("american_category",target.americanCategory):unitQuery.eq("national_grade",target.nationalGrade);
   const [{data: unit}, {data: modules}] = await Promise.all([
     unitQuery.single(),
     supabase.from("exams")

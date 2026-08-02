@@ -1,10 +1,10 @@
 "use client";
 import {useEffect,useRef,useState} from "react";
-export function QuestionImageUpload({value="",name,fileName,onChange}:{value?:string;name?:string;fileName:string;onChange?:(url:string)=>void}){
+export function QuestionImageUpload({value="",name,fileName,onChange,onPreviewChange}:{value?:string;name?:string;fileName:string;onChange?:(url:string)=>void;onPreviewChange?:(url:string)=>void}){
  const [url,setUrl]=useState(value),[preview,setPreview]=useState(value),[error,setError]=useState("");const objectUrl=useRef<string|null>(null),fileInput=useRef<HTMLInputElement|null>(null);
  useEffect(()=>()=>{if(objectUrl.current)URL.revokeObjectURL(objectUrl.current)},[]);
  function clearObjectUrl(){if(objectUrl.current){URL.revokeObjectURL(objectUrl.current);objectUrl.current=null}}
- function select(file:File){if(file.size>3*1024*1024){setError("Image must be 3 MB or smaller.");if(fileInput.current)fileInput.current.value="";return}if(!["image/jpeg","image/png","image/webp","image/gif"].includes(file.type)){setError("Use JPG, PNG, WebP, or GIF.");if(fileInput.current)fileInput.current.value="";return}clearObjectUrl();objectUrl.current=URL.createObjectURL(file);setPreview(objectUrl.current);setError("")}
- function remove(){clearObjectUrl();if(fileInput.current)fileInput.current.value="";setUrl("");setPreview("");setError("");onChange?.("")}
+ function select(file:File){if(file.size>3*1024*1024){setError("Image must be 3 MB or smaller.");if(fileInput.current)fileInput.current.value="";return}if(!["image/jpeg","image/png","image/webp","image/gif"].includes(file.type)){setError("Use JPG, PNG, WebP, or GIF.");if(fileInput.current)fileInput.current.value="";return}clearObjectUrl();objectUrl.current=URL.createObjectURL(file);setPreview(objectUrl.current);onPreviewChange?.(objectUrl.current);setError("")}
+ function remove(){clearObjectUrl();if(fileInput.current)fileInput.current.value="";setUrl("");setPreview("");setError("");onChange?.("");onPreviewChange?.("")}
  return <div className="field question-image-upload">{name&&<input type="hidden" name={name} value={url}/>}<label>Question image <small>Optional · maximum 3 MB</small></label><input ref={fileInput} name={fileName} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={event=>{const file=event.target.files?.[0];if(file)select(file)}}/><small>The image uploads when you submit this form.</small>{error&&<small className="form-error">{error}</small>}{preview&&<div className="question-image-preview"><div className="question-media-page"><img src={preview} alt="Question preview"/></div><button type="button" className="text-action" onClick={remove}>Remove image</button></div>}</div>;
 }

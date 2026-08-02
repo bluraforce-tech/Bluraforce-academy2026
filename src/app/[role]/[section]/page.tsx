@@ -46,7 +46,10 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
   const [title, description, table, select] = sections[section as keyof typeof sections];
   let rows: Record<string, unknown>[] = [];
   if (section === "mistakes-exams" && role === "teacher") {
-    const { data: exams } = await supabase.from("exams").select("id,title,status,duration_minutes,created_at").eq("teacher_id", user.id).eq("kind", "mistakes").order("created_at", { ascending: false });
+    if(!teacherTarget)redirect("/teacher/dashboard?error=environment-required");
+    let mistakesQuery=supabase.from("exams").select("id,title,status,duration_minutes,created_at").eq("teacher_id", user.id).eq("kind", "mistakes").eq("education_system",teacherTarget.educationSystem);
+    mistakesQuery=teacherTarget.educationSystem==="american"?mistakesQuery.eq("american_category",teacherTarget.americanCategory):mistakesQuery.eq("national_grade",teacherTarget.nationalGrade);
+    const { data: exams } = await mistakesQuery.order("created_at", { ascending: false });
     const examIds = (exams ?? []).map((exam) => exam.id);
     const { data: assignments } = examIds.length ? await supabase.from("exam_assignments").select("id,exam_id,student_id,revoked_at").in("exam_id", examIds) : { data: [] };
     const studentIds = [...new Set((assignments ?? []).map((assignment) => assignment.student_id))];
@@ -70,7 +73,12 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
   } else {
     let query = supabase.from(table).select(select).order("created_at", { ascending: false }).limit(50);
     if (section === "students" && role === "admin") query = query.eq("role", "student");
-    else if (role === "teacher" && ["exams", "mistakes-exams", "videos", "materials", "study-notes", "invitation-codes"].includes(section)) query = query.eq("teacher_id", user.id);
+    else if (role === "teacher" && ["exams", "mistakes-exams", "videos", "materials", "study-notes", "invitation-codes"].includes(section)) {
+      if(!teacherTarget)redirect("/teacher/dashboard?error=environment-required");
+      query=query.eq("teacher_id",user.id).eq("education_system",teacherTarget.educationSystem);
+      if(section!=="invitation-codes")query=teacherTarget.educationSystem==="american"?query.eq("american_category",teacherTarget.americanCategory):query.eq("national_grade",teacherTarget.nationalGrade);
+      else if(teacherTarget.educationSystem==="national")query=query.eq("national_grade",teacherTarget.nationalGrade);
+    }
     if (section === "exams") query = query.eq("kind", "standard");
     if (section === "mistakes-exams") query = query.eq("kind", "mistakes");
     if (section === "materials") query = query.eq("resource_kind", "material_book");

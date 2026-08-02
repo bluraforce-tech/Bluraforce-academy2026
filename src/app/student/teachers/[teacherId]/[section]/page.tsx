@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, BookOpen, FileText, GraduationCap, PlayCircle } from "lucide-react";
+import { ArrowLeft, BookOpen, CalendarClock, CheckCircle2, FileText, GraduationCap, PlayCircle, RotateCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { startAttempt } from "@/features/exams/actions";
 import { parseStudentAmericanCategory, withAmericanCategory } from "@/lib/student-american-category";
@@ -144,8 +144,11 @@ export default async function PortalSection({
             const completed = attempt && attempt.status !== "in_progress";
             const reviewAvailable = completed && item.endsAt && Date.parse(item.endsAt) <= renderedAt;
             return (
-              <article className="activity" key={item.assignmentId}>
-                {body}
+              <article className={`activity student-exam-card ${completed ? "completed" : attempt?.status === "in_progress" ? "in-progress" : ""}`} key={item.assignmentId}>
+                <div className="student-exam-main">{body}<div className="exam-meta">
+                  {item.durationMinutes && <span><CalendarClock size={14} />{item.durationMinutes} min</span>}
+                  {completed ? <span className="status-pill success"><CheckCircle2 size={14} />Completed</span> : attempt?.status === "in_progress" ? <span className="status-pill progress"><RotateCcw size={14} />In progress</span> : <span className="status-pill">Not started</span>}
+                </div></div>
                 {completed ? (
                   <div className="exam-result-actions">
                     <span className="exam-score">Score: {attempt.score ?? 0}</span>
@@ -154,6 +157,7 @@ export default async function PortalSection({
                         View mistakes
                       </Link>
                     )}
+                    {!reviewAvailable && item.endsAt && <small className="review-locked">Mistakes available after {new Date(item.endsAt).toLocaleString()}</small>}
                   </div>
                 ) : (
                   <form action={startAttempt}>
