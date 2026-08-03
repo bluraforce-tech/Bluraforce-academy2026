@@ -7,6 +7,7 @@ import { toggleExamVisibility, toggleMistakesExamVisibility } from "@/features/e
 import { DeleteExamForm } from "@/components/delete-exam-form";
 import { EducationTargetBadge } from "@/components/education-target-badge";
 import { getTeacherEducationTarget } from "@/lib/teacher-education-context";
+import { toggleMaterialVisibility } from "@/features/materials/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -129,6 +130,8 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
                 {section === "mistakes-exams" && Boolean(row.assignment_id) && <form action={toggleMistakesExamVisibility}><input type="hidden" name="assignmentId" value={String(row.assignment_id)} /><input type="hidden" name="visible" value={Boolean(row.visible) ? "false" : "true"} /><button className={`visibility-action ${Boolean(row.visible) ? "hide" : "show"}`}>{Boolean(row.visible) ? "Hide from student" : "Show to student"}</button></form>}
                 {reviewExam && <DeleteExamForm examId={String(row.id)} title={String(row.title ?? "exam")} />}
                 {createVideo && <Link className="text-action" href={`/teacher/videos/${String(row.id)}/edit`}>Edit</Link>}
+                {(createMaterial||createStudyNote)&&<Link className="text-action" href={`/teacher/${section}/${String(row.id)}/edit`}>Edit</Link>}
+                {(createMaterial||createStudyNote)&&["published","archived"].includes(status)&&<form action={toggleMaterialVisibility}><input type="hidden" name="materialId" value={String(row.id)}/><input type="hidden" name="contentKind" value={createStudyNote?"study_note":"material_book"}/><input type="hidden" name="show" value={status==="archived"?"true":"false"}/><button className={`visibility-action ${status==="published"?"hide":"show"}`}>{status==="published"?"Hide":"Show"}</button></form>}
                 {generateCode && status === "active" && <form action={revokeInvitationCode}><input type="hidden" name="codeId" value={String(row.id)} /><button className="danger-link">Revoke</button></form>}
               </div>
             </article>;
