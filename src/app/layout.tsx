@@ -4,6 +4,11 @@ import {SessionHistoryGuard} from "@/components/session-history-guard";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://bluraforce-academy2026.vercel.app"),
+  icons: {
+    icon: [{url:"/high-achievers-nav-icon.png?v=3",type:"image/png",sizes:"256x256"}],
+    shortcut: "/high-achievers-nav-icon.png?v=3",
+    apple: "/high-achievers-nav-icon.png?v=3",
+  },
   title: "High Achievers — Learn, Grow, Achieve",
   description: "A secure, teacher-led platform for lessons, exams, and learning progress.",
   openGraph: {
