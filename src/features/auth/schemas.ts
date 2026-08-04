@@ -1,5 +1,5 @@
 import { z } from "zod";
-const digits=(value:string)=>value.trim().replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[^\d]/g,"");
+const digits=(value:string)=>value.trim().replace(/[\u0660-\u0669]/g,d=>String(d.charCodeAt(0)-0x0660)).replace(/[\u06f0-\u06f9]/g,d=>String(d.charCodeAt(0)-0x06f0)).replace(/[^\d]/g,"");
 export const loginSchema=z.object({email:z.string().email("Enter a valid email"),password:z.string().min(8),role:z.enum(["student","teacher","admin"])});
 export const studentRegistrationSchema=z.object({
   fullName:z.string().trim().min(3).max(120),email:z.string().email(),password:z.string().min(8).max(72),

@@ -1,5 +1,5 @@
 "use server";
-import {createHmac} from "crypto";
+import {createDecipheriv,createHmac} from "crypto";
 import {redirect} from "next/navigation";
 import {z} from "zod";
 import {createClient} from "@/lib/supabase/server";
@@ -15,9 +15,14 @@ export async function findStudentForPasswordReset(formData:FormData){
  const nationalId=normalizeNationalId(String(formData.get("nationalId")??""));
  if(!/^\d{14}$/.test(nationalId))redirect("/admin/students/password?error=invalid-id");
  const hash=createHmac("sha256",env.NATIONAL_ID_HMAC_SECRET).update(nationalId).digest("hex");
- const {data}=await createAdminClient().from("student_profiles").select("user_id").eq("national_id_hash",hash).maybeSingle();
- if(!data)redirect("/admin/students/password?error=not-found");
- redirect(`/admin/students/password?studentId=${data.user_id}`);
+ const admin=createAdminClient(),{data}=await admin.from("student_profiles").select("user_id").eq("national_id_hash",hash).maybeSingle();
+ if(data)redirect(`/admin/students/password?studentId=${data.user_id}`);
+ if(env.NATIONAL_ID_ENCRYPTION_KEY){
+  const {data:candidates}=await admin.from("student_profiles").select("user_id,national_id_encrypted").eq("national_id_last4",nationalId.slice(-4));
+  const key=Buffer.from(env.NATIONAL_ID_ENCRYPTION_KEY,"base64");
+  if(key.length===32)for(const candidate of candidates??[]){try{const packed=Buffer.from(candidate.national_id_encrypted,"base64");if(packed.length<29)continue;const iv=packed.subarray(packed.length-12),tag=packed.subarray(packed.length-28,packed.length-12),encrypted=packed.subarray(0,packed.length-28),decipher=createDecipheriv("aes-256-gcm",key,iv);decipher.setAuthTag(tag);const decrypted=Buffer.concat([decipher.update(encrypted),decipher.final()]).toString("utf8");if(normalizeNationalId(decrypted)===nationalId)redirect(`/admin/students/password?studentId=${candidate.user_id}`)}catch{continue}}
+ }
+ redirect("/admin/students/password?error=not-found");
 }
 
 export async function resetStudentPassword(formData:FormData){
