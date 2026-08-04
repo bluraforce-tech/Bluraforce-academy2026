@@ -7,6 +7,7 @@ import { AdminGrowthAnalytics } from "@/components/admin-growth-analytics";
 import { getTeacherEducationTarget } from "@/lib/teacher-education-context";
 import {americanCategoryLabel,educationSystemLabel,nationalGradeLabel} from "@/lib/education-target";
 import { EducationTargetSelector } from "@/components/education-target-selector";
+import { MobileAppNav } from "@/components/mobile-app-nav";
 import { selectTeacherEnvironment } from "@/features/teachers/environment-actions";
 
 const nav=[["Dashboard","dashboard",LayoutDashboard],["Teachers","teachers",GraduationCap],["Students","students",Users],["Invitation codes","invitation-codes",Ticket],["Question Bank","question-bank",Library],["Assignments","assignments",Library],["Exams","exams",BookOpen],["Mistakes exams","mistakes-exams",Brain],["Create exam","exams/new",BookOpen],["Random exam","exams/random",Shuffle],["Exam from old questions","exams/from-bank",Library],["Lesson videos","videos",PlayCircle],["Material Books","materials",FileText],["Study Notes","study-notes",FileText]] as const;
@@ -73,7 +74,7 @@ export default async function Dashboard({params}:{params:Promise<{role:string}>}
    ? adminNavItems.has(label)
    : label!=="Teachers"&&(teacherTarget?.educationSystem==="american"?label!=="Question Bank":label!=="Assignments")
  );
- return <main className="app-frame">
+ return <main className="app-frame"><MobileAppNav items={visibleNav.map(([label,path,Icon],i)=>({label,href:`/${role}/${path}`,icon:Icon,active:i===0}))}/>
   <aside><Link href="/" className="brand"><span className="brand-mark"><GraduationCap/></span>Academy</Link><nav>{visibleNav.map(([label,path,Icon],i)=><Link key={label} className={i===0?"active":""} href={`/${role}/${path}`}><Icon size={19}/>{label}</Link>)}</nav><form action={logout}><button className="logout" type="submit"><LogOut size={18}/>Sign out</button></form></aside>
   <section className="app-content">
    <header><div><small>{role} workspace</small><h1>Welcome back, {profile.full_name.split(" ")[0]}</h1><p>{teacherTarget?`${educationSystemLabel(teacherTarget.educationSystem)}${teacherTarget.americanCategory?` · ${americanCategoryLabel(teacherTarget.americanCategory)}`:""}${teacherTarget.nationalGrade?` · ${nationalGradeLabel(teacherTarget.nationalGrade)}`:""} environment`:"Here’s what’s happening with your learning space today."}</p></div><span className="user-badge">{profile.full_name.slice(0,2).toUpperCase()}</span></header>

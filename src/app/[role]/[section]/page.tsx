@@ -8,6 +8,7 @@ import { DeleteExamForm } from "@/components/delete-exam-form";
 import { EducationTargetBadge } from "@/components/education-target-badge";
 import { getTeacherEducationTarget } from "@/lib/teacher-education-context";
 import { toggleMaterialVisibility } from "@/features/materials/actions";
+import { MobileAppNav } from "@/components/mobile-app-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -102,10 +103,11 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
     : createMaterial ? <Link className="button small" href="/teacher/materials/new">Add material book</Link>
     : createStudyNote ? <Link className="button small" href="/teacher/study-notes/new">Add study note</Link> : null;
 
-  return <main className="app-frame">
+  const visibleNav=nav.filter(([label]) => role === "admin" ? ["Dashboard","Teachers","Students"].includes(label) : label !== "Teachers"&&(teacherTarget?.educationSystem==="american"?label!=="Question Bank":label!=="Assignments"));
+  return <main className="app-frame"><MobileAppNav items={visibleNav.map(([label,path,Icon])=>({label,href:`/${role}/${path}`,icon:Icon,active:path===section}))}/>
     <aside>
       <Link href="/" className="brand"><span className="brand-mark"><GraduationCap /></span>Academy</Link>
-      <nav>{nav.filter(([label]) => role === "admin" ? ["Dashboard","Teachers","Students"].includes(label) : label !== "Teachers"&&(teacherTarget?.educationSystem==="american"?label!=="Question Bank":label!=="Assignments")).map(([label, path, Icon]) => <Link key={path} className={path === section ? "active" : ""} href={`/${role}/${path}`}><Icon size={19} />{label}</Link>)}</nav>
+      <nav>{visibleNav.map(([label, path, Icon]) => <Link key={path} className={path === section ? "active" : ""} href={`/${role}/${path}`}><Icon size={19} />{label}</Link>)}</nav>
     </aside>
     <section className="app-content">
       <Link className="back-link" href={`/${role}/dashboard`}><ArrowLeft size={16} />Back to dashboard</Link>
