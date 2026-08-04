@@ -4,28 +4,28 @@ import {SessionHistoryGuard} from "@/components/session-history-guard";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://bluraforce-academy2026.vercel.app"),
-  title: "BluraForce Academy — Secure learning platform",
+  title: "High Achievers — Learn, Grow, Achieve",
   description: "A secure, teacher-led platform for lessons, exams, and learning progress.",
   openGraph: {
-    title: "BluraForce Academy — Secure learning platform",
+    title: "High Achievers — Learn, Grow, Achieve",
     description: "A secure, teacher-led platform for lessons, exams, and learning progress.",
     url: "/",
-    siteName: "BluraForce Academy",
+    siteName: "High Achievers",
     images: [
       {
-        url: "/bluraforce-icon.png",
+        url: "/high-achievers-icon.png",
         width: 512,
         height: 512,
-        alt: "BluraForce logo",
+        alt: "High Achievers logo",
       },
     ],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "BluraForce Academy — Secure learning platform",
+    title: "High Achievers — Learn, Grow, Achieve",
     description: "A secure, teacher-led platform for lessons, exams, and learning progress.",
-    images: ["/bluraforce-icon.png"],
+    images: ["/high-achievers-icon.png"],
   },
 };
 

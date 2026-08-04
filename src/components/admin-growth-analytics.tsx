@@ -42,7 +42,12 @@ export function AdminGrowthAnalytics({
 }) {
   const [period, setPeriod] = useState<"day" | "month">("day");
   const [system,setSystem]=useState<"all"|"national"|"american">("all");
+  const [selectedYears,setSelectedYears]=useState<number[]>([]);
+  const [selectedMonths,setSelectedMonths]=useState<number[]>([]);
   const registrations = period === "day" ? dailyStudents : monthlyStudents;
+  const years=[...new Set(teacherRedemptions.flatMap(teacher=>teacher.codes.map(code=>new Date(code.redeemedAt).getFullYear())))].sort((a,b)=>b-a);
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const toggle=(value:number,values:number[],setValues:(values:number[])=>void)=>setValues(values.includes(value)?values.filter(item=>item!==value):[...values,value]);
   const categoryLabel=(code:TeacherRedemption["codes"][number])=>code.educationSystem==="american"?(({classified:"Classified",sat:"SAT",est:"EST"} as Record<string,string>)[code.americanCategory??""]??"American"):code.educationSystem==="national"?(({sensor_1:"Senior 1",sensor_2:"Senior 2",sensor_3:"Senior 3"} as Record<string,string>)[code.nationalGrade??""]??"National"):"Needs classification";
 
   return (
@@ -82,8 +87,13 @@ export function AdminGrowthAnalytics({
           </div>
           <div className="redemption-filter" aria-label="Filter redeemed codes"><button className={system==="all"?"active":""} onClick={()=>setSystem("all")}>All</button><button className={system==="national"?"active":""} onClick={()=>setSystem("national")}>National</button><button className={system==="american"?"active":""} onClick={()=>setSystem("american")}>American</button></div>
         </div>
+        <div className="redemption-date-filters">
+          <div><strong>Years</strong><div>{years.map(year=><button type="button" className={selectedYears.includes(year)?"active":""} aria-pressed={selectedYears.includes(year)} onClick={()=>toggle(year,selectedYears,setSelectedYears)} key={year}>{year}</button>)}</div></div>
+          <div><strong>Months</strong><div>{months.map((month,index)=><button type="button" className={selectedMonths.includes(index)?"active":""} aria-pressed={selectedMonths.includes(index)} onClick={()=>toggle(index,selectedMonths,setSelectedMonths)} key={month}>{month}</button>)}</div></div>
+          {(selectedYears.length>0||selectedMonths.length>0)&&<button className="clear-date-filter" type="button" onClick={()=>{setSelectedYears([]);setSelectedMonths([])}}>Clear dates</button>}
+        </div>
         <div className="teacher-redemption-grid">
-          {teacherRedemptions.map((teacher) => {const codes=teacher.codes.filter(code=>system==="all"||code.educationSystem===system),nationalCount=teacher.codes.filter(code=>code.educationSystem==="national").length,americanCount=teacher.codes.filter(code=>code.educationSystem==="american").length;return <article className="teacher-redemption-card" key={teacher.teacherId}>
+          {teacherRedemptions.map((teacher) => {const dateCodes=teacher.codes.filter(code=>{const date=new Date(code.redeemedAt);return (selectedYears.length===0||selectedYears.includes(date.getFullYear()))&&(selectedMonths.length===0||selectedMonths.includes(date.getMonth()))}),codes=dateCodes.filter(code=>system==="all"||code.educationSystem===system),nationalCount=dateCodes.filter(code=>code.educationSystem==="national").length,americanCount=dateCodes.filter(code=>code.educationSystem==="american").length;return <article className="teacher-redemption-card" key={teacher.teacherId}>
               <div className="teacher-redemption-head"><div><small>Teacher</small><h3>{teacher.name}</h3></div><strong>{codes.length}</strong></div>
               <div className="teacher-code-summary"><span>{teacher.thisMonth} this month</span><span>{teacher.total} all time</span><span className="national-count">{nationalCount} National</span><span className="american-count">{americanCount} American</span></div>
               <div className="redeemed-code-list">{codes.map(code=><div className="redeemed-code" key={code.id}><div><b>{code.code}</b><small>{new Date(code.redeemedAt).toLocaleDateString()}</small></div><span className={`code-category ${code.educationSystem??"unknown"}`}>{code.educationSystem==="american"?"American":"National"} · {categoryLabel(code)}</span></div>)}{codes.length===0&&<p>No {system==="all"?"redeemed":system} codes.</p>}</div>

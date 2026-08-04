@@ -108,7 +108,7 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
   const visibleNav=nav.filter(([label]) => role === "admin" ? ["Dashboard","Teachers","Students"].includes(label) : label !== "Teachers"&&(teacherTarget?.educationSystem==="american"?label!=="Question Bank":label!=="Assignments"));
   return <main className="app-frame"><MobileAppNav items={visibleNav.map(([label,path])=>({label,href:`/${role}/${path}`,active:path===section}))}/>
     <aside>
-      <Link href="/" className="brand"><span className="brand-mark"><GraduationCap /></span>Academy</Link>
+      <Link href="/" className="brand"><span className="brand-mark"><GraduationCap /></span>High Achievers</Link>
       <nav>{visibleNav.map(([label, path, Icon]) => <Link key={path} className={path === section ? "active" : ""} href={`/${role}/${path}`}><Icon size={19} />{label}</Link>)}</nav>
     </aside>
     <section className="app-content">

@@ -11,7 +11,7 @@ export default async function Home() {
   return (
     <main>
       <nav className="nav shell">
-        <Link href="/" className="brand"><span className="brand-mark"><GraduationCap size={22}/></span>Academy</Link>
+        <Link href="/" className="brand"><span className="brand-mark"><GraduationCap size={22}/></span>High Achievers</Link>
         <div className="nav-actions"><Link href="/auth/student/login" className="text-link">Sign in</Link><Link href="/auth/student/register" className="button small">Create account</Link></div>
       </nav>
       <section className="hero shell">
@@ -45,7 +45,7 @@ export default async function Home() {
         <div className="section-heading"><span>Everything in one place</span><h2>Designed for meaningful progress</h2><p>Teachers get precise control. Students get a clear path forward.</p></div>
         <div className="features">{features.map(({icon: Icon, title, text}) => <article key={title}><span><Icon/></span><h3>{title}</h3><p>{text}</p></article>)}</div>
       </section>
-      <footer className="shell"><Link href="/" className="brand"><GraduationCap size={20}/>Academy</Link><p>Secure learning, thoughtfully built.</p><Link href="/auth/admin/login">Admin access</Link></footer>
+      <footer className="shell"><Link href="/" className="brand"><GraduationCap size={20}/>High Achievers</Link><p>Learn · Grow · Achieve.</p><Link href="/auth/admin/login">Admin access</Link></footer>
     </main>
   );
 }
