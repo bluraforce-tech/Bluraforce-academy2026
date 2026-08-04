@@ -20,7 +20,9 @@ export async function findStudentForPasswordReset(formData:FormData){
  if(env.NATIONAL_ID_ENCRYPTION_KEY){
   const {data:candidates}=await admin.from("student_profiles").select("user_id,national_id_encrypted").eq("national_id_last4",nationalId.slice(-4));
   const key=Buffer.from(env.NATIONAL_ID_ENCRYPTION_KEY,"base64");
-  if(key.length===32)for(const candidate of candidates??[]){try{const packed=Buffer.from(candidate.national_id_encrypted,"base64");if(packed.length<29)continue;const iv=packed.subarray(packed.length-12),tag=packed.subarray(packed.length-28,packed.length-12),encrypted=packed.subarray(0,packed.length-28),decipher=createDecipheriv("aes-256-gcm",key,iv);decipher.setAuthTag(tag);const decrypted=Buffer.concat([decipher.update(encrypted),decipher.final()]).toString("utf8");if(normalizeNationalId(decrypted)===nationalId)redirect(`/admin/students/password?studentId=${candidate.user_id}`)}catch{continue}}
+  let matchedStudentId:string|undefined;
+  if(key.length===32)for(const candidate of candidates??[]){try{const packed=Buffer.from(candidate.national_id_encrypted,"base64");if(packed.length<29)continue;const iv=packed.subarray(packed.length-12),tag=packed.subarray(packed.length-28,packed.length-12),encrypted=packed.subarray(0,packed.length-28),decipher=createDecipheriv("aes-256-gcm",key,iv);decipher.setAuthTag(tag);const decrypted=Buffer.concat([decipher.update(encrypted),decipher.final()]).toString("utf8");if(normalizeNationalId(decrypted)===nationalId){matchedStudentId=candidate.user_id;break}}catch{continue}}
+  if(matchedStudentId)redirect(`/admin/students/password?studentId=${matchedStudentId}`);
  }
  redirect("/admin/students/password?error=not-found");
 }
