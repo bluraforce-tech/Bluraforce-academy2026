@@ -5,7 +5,7 @@ import {createClient} from "@/lib/supabase/server";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {findStudentForPasswordReset,resetStudentPassword} from "@/features/students/actions";
 
-const errors:Record<string,string>={"invalid-id":"Enter a valid 14-digit National ID.","not-found":"No student account was found for that National ID.","invalid-password":"Use 8–72 characters and make sure both passwords match.",account:"The password could not be updated."};
+const errors:Record<string,string>={"invalid-id":"Enter a valid 14-digit National ID.","not-found":"No student account was found for that National ID.",configuration:"Secure National ID lookup is not configured correctly on this deployment. The HMAC and encryption secrets must match the values used when students registered.","multiple-matches":"More than one student has the same final four National ID digits. Please use the Students list to identify the account.","invalid-password":"Use 8–72 characters and make sure both passwords match.",account:"The password could not be updated."};
 export default async function StudentPasswordPage({searchParams}:{searchParams:Promise<{studentId?:string;error?:string;updated?:string}>}){
  const query=await searchParams,supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();if(!user)redirect("/auth/admin/login");const {data:adminProfile}=await supabase.from("profiles").select("role").eq("id",user.id).single();if(adminProfile?.role!=="admin")redirect("/");
  let student:{id:string;full_name:string}|null=null;if(query.studentId){const {data}=await createAdminClient().from("profiles").select("id,full_name").eq("id",query.studentId).eq("role","student").maybeSingle();student=data}
