@@ -96,7 +96,9 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
   const createMaterial = role === "teacher" && section === "materials";
   const createStudyNote = role === "teacher" && section === "study-notes";
   const reviewExam = role === "teacher" && ["exams", "mistakes-exams"].includes(section);
-  const action = createTeacher ? <Link className="button small" href="/admin/teachers/new">Add teacher</Link>
+  const manageStudentPassword = role === "admin" && section === "students";
+  const action = manageStudentPassword ? <Link className="button small" href="/admin/students/password">Change student password</Link>
+    : createTeacher ? <Link className="button small" href="/admin/teachers/new">Add teacher</Link>
     : generateCode ? <Link className="button small" href="/teacher/invitation-codes/new">Generate code</Link>
     : createExam ? <Link className="button small" href="/teacher/exams/new">Add exam</Link>
     : createVideo ? <Link className="button small" href="/teacher/videos/new">Add video</Link>
