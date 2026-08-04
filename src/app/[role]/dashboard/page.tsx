@@ -12,7 +12,8 @@ import { selectTeacherEnvironment } from "@/features/teachers/environment-action
 
 const nav=[["Dashboard","dashboard",LayoutDashboard],["Teachers","teachers",GraduationCap],["Students","students",Users],["Invitation codes","invitation-codes",Ticket],["Question Bank","question-bank",Library],["Assignments","assignments",Library],["Exams","exams",BookOpen],["Mistakes exams","mistakes-exams",Brain],["Create exam","exams/new",BookOpen],["Random exam","exams/random",Shuffle],["Exam from old questions","exams/from-bank",Library],["Lesson videos","videos",PlayCircle],["Material Books","materials",FileText],["Study Notes","study-notes",FileText]] as const;
 type Point={label:string;value:number};
-type TeacherRedemption={teacherId:string;name:string;total:number;thisMonth:number};
+type RedeemedCode={id:string;code:string;educationSystem:"american"|"national"|null;americanCategory:string|null;nationalGrade:string|null;redeemedAt:string};
+type TeacherRedemption={teacherId:string;name:string;total:number;thisMonth:number;codes:RedeemedCode[]};
 type Analytics={dailyStudents:Point[];monthlyStudents:Point[];monthlyRedemptions:Point[];teacherRedemptions:TeacherRedemption[]};
 export default async function Dashboard({params}:{params:Promise<{role:string}>}){
  const {role}=await params;if(!["admin","teacher","student"].includes(role))redirect("/");
@@ -47,7 +48,7 @@ export default async function Dashboard({params}:{params:Promise<{role:string}>}
    supabase.from("teacher_student_enrollments").select("id",{count:"exact",head:true}).eq("status","active").or(`access_expires_at.is.null,access_expires_at.gt.${now}`),
    supabase.from("admin_notifications").select("id",{count:"exact",head:true}).eq("status","unread"),
    supabase.from("profiles").select("created_at").eq("role","student").gte("created_at",rangeStart.toISOString()),
-   supabase.from("student_invitation_codes").select("teacher_id,redeemed_by,redeemed_at").not("redeemed_at","is",null),
+   supabase.from("student_invitation_codes").select("id,code_masked,teacher_id,redeemed_by,redeemed_at,education_system,american_category,national_grade").not("redeemed_at","is",null).order("redeemed_at",{ascending:false}),
    supabase.from("profiles").select("id,full_name").eq("role","teacher"),
   ]);
   stats=[["Active teachers",teachers??0],["Students",students??0],["Enrollments",enrollments??0],["Open alerts",alerts??0]];
@@ -63,7 +64,7 @@ export default async function Dashboard({params}:{params:Promise<{role:string}>}
    dailyStudents:days.map(date=>({label:new Intl.DateTimeFormat("en",{month:"short",day:"numeric",timeZone:"Africa/Cairo"}).format(date),value:dayCounts.get(cairoDay(date))??0})),
    monthlyStudents:months.map(date=>({label:new Intl.DateTimeFormat("en",{month:"short",year:"2-digit",timeZone:"UTC"}).format(date),value:monthCounts.get(monthKey(date))??0})),
    monthlyRedemptions:months.map(date=>({label:new Intl.DateTimeFormat("en",{month:"short",year:"2-digit",timeZone:"UTC"}).format(date),value:redeemers.get(monthKey(date))?.size??0})),
-   teacherRedemptions:(teacherProfiles??[]).map(teacher=>({teacherId:teacher.id,name:teacher.full_name,total:teacherTotals.get(teacher.id)??0,thisMonth:teacherMonthlyTotals.get(teacher.id)??0})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name)),
+   teacherRedemptions:(teacherProfiles??[]).map(teacher=>({teacherId:teacher.id,name:teacher.full_name,total:teacherTotals.get(teacher.id)??0,thisMonth:teacherMonthlyTotals.get(teacher.id)??0,codes:(redemptions??[]).filter(code=>code.teacher_id===teacher.id).map(code=>({id:code.id,code:code.code_masked,educationSystem:code.education_system,americanCategory:code.american_category,nationalGrade:code.national_grade,redeemedAt:code.redeemed_at!}))})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name)),
   };
  }
  const adminNavItems=new Set(["Dashboard","Teachers","Students"]);

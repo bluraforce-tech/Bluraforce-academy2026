@@ -8,6 +8,7 @@ type TeacherRedemption = {
   name: string;
   total: number;
   thisMonth: number;
+  codes: Array<{id:string;code:string;educationSystem:"american"|"national"|null;americanCategory:string|null;nationalGrade:string|null;redeemedAt:string}>;
 };
 
 function Bars({ data, color = "blue" }: { data: Point[]; color?: "blue" | "navy" }) {
@@ -40,7 +41,9 @@ export function AdminGrowthAnalytics({
   teacherRedemptions: TeacherRedemption[];
 }) {
   const [period, setPeriod] = useState<"day" | "month">("day");
+  const [system,setSystem]=useState<"all"|"national"|"american">("all");
   const registrations = period === "day" ? dailyStudents : monthlyStudents;
+  const categoryLabel=(code:TeacherRedemption["codes"][number])=>code.educationSystem==="american"?(({classified:"Classified",sat:"SAT",est:"EST"} as Record<string,string>)[code.americanCategory??""]??"American"):code.educationSystem==="national"?(({sensor_1:"Senior 1",sensor_2:"Senior 2",sensor_3:"Senior 3"} as Record<string,string>)[code.nationalGrade??""]??"National"):"Needs classification";
 
   return (
     <section className="admin-analytics">
@@ -75,20 +78,16 @@ export function AdminGrowthAnalytics({
           <div>
             <small>Teacher performance</small>
             <h2>Redeemed codes by teacher</h2>
-            <p>Separate totals for every teacher</p>
+            <p>Every redeemed code grouped by teacher and education category</p>
           </div>
+          <div className="redemption-filter" aria-label="Filter redeemed codes"><button className={system==="all"?"active":""} onClick={()=>setSystem("all")}>All</button><button className={system==="national"?"active":""} onClick={()=>setSystem("national")}>National</button><button className={system==="american"?"active":""} onClick={()=>setSystem("american")}>American</button></div>
         </div>
-        <div className="redemption-table">
-          <div className="redemption-row header">
-            <span>Teacher</span><span>This month</span><span>All time</span>
-          </div>
-          {teacherRedemptions.map((teacher) => (
-            <div className="redemption-row" key={teacher.teacherId}>
-              <strong>{teacher.name}</strong>
-              <span>{teacher.thisMonth}</span>
-              <b>{teacher.total}</b>
-            </div>
-          ))}
+        <div className="teacher-redemption-grid">
+          {teacherRedemptions.map((teacher) => {const codes=teacher.codes.filter(code=>system==="all"||code.educationSystem===system);return <article className="teacher-redemption-card" key={teacher.teacherId}>
+              <div className="teacher-redemption-head"><div><small>Teacher</small><h3>{teacher.name}</h3></div><strong>{codes.length}</strong></div>
+              <div className="teacher-code-summary"><span>{teacher.thisMonth} this month</span><span>{teacher.total} all time</span></div>
+              <div className="redeemed-code-list">{codes.map(code=><div className="redeemed-code" key={code.id}><div><b>{code.code}</b><small>{new Date(code.redeemedAt).toLocaleDateString()}</small></div><span className={`code-category ${code.educationSystem??"unknown"}`}>{code.educationSystem==="american"?"American":"National"} · {categoryLabel(code)}</span></div>)}{codes.length===0&&<p>No {system==="all"?"redeemed":system} codes.</p>}</div>
+            </article>})}
         </div>
         {teacherRedemptions.length === 0 && <p className="analytics-empty">No teachers found.</p>}
       </article>
