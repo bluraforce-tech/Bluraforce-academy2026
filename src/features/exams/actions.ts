@@ -77,17 +77,6 @@ export async function toggleExamVisibility(formData:FormData){
  revalidatePath("/student/teachers/[teacherId]/exams","page");
  redirect(`/teacher/exams?visibility=${nextStatus==="published"?"shown":"hidden"}`);
 }
-export async function toggleMistakesExamVisibility(formData:FormData){
- const supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();if(!user)redirect("/auth/teacher/login");
- const input=z.object({assignmentId:z.string().uuid(),visible:z.enum(["true","false"])}).safeParse(Object.fromEntries(formData));
- if(!input.success)redirect("/teacher/mistakes-exams?error=visibility");
- const {data:assignment}=await supabase.from("exam_assignments").select("id,exam_id,exams!inner(teacher_id,kind)").eq("id",input.data.assignmentId).eq("exams.teacher_id",user.id).eq("exams.kind","mistakes").single();
- if(!assignment)redirect("/teacher/mistakes-exams?error=visibility");
- const {error}=await supabase.from("exam_assignments").update({revoked_at:input.data.visible==="true"?null:new Date().toISOString()}).eq("id",assignment.id);
- if(error)redirect("/teacher/mistakes-exams?error=visibility");
- revalidatePath("/teacher/mistakes-exams");revalidatePath("/student/teachers");revalidatePath("/student/teachers/[teacherId]/mistakes-exams","page");
- redirect(`/teacher/mistakes-exams?visibility=${input.data.visible==="true"?"shown":"hidden"}`);
-}
 export async function deleteExam(formData:FormData){
  const supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();if(!user)redirect("/auth/teacher/login");
  const examId=z.string().uuid().safeParse(formData.get("examId"));if(!examId.success)redirect("/teacher/exams?error=delete");

@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, BookOpen, Brain, FileText, GraduationCap, LayoutDashboard, Library, PlayCircle, Shuffle, Ticket, Users } from "lucide-react";
+import { ArrowLeft, BookOpen, Brain, FileText, GraduationCap, LayoutDashboard, Library, PlayCircle, Search, Shuffle, Ticket, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { revokeInvitationCode } from "@/features/invitation-codes/actions";
-import { toggleExamVisibility, toggleMistakesExamVisibility } from "@/features/exams/actions";
+import { toggleExamVisibility } from "@/features/exams/actions";
 import { DeleteExamForm } from "@/components/delete-exam-form";
 import { EducationTargetBadge } from "@/components/education-target-badge";
 import { getTeacherEducationTarget } from "@/lib/teacher-education-context";
@@ -35,8 +35,8 @@ const nav = [
   ["Study Notes", "study-notes", FileText],
 ] as const;
 
-export default async function SectionPage({ params }: { params: Promise<{ role: string; section: string }> }) {
-  const { role, section } = await params;
+export default async function SectionPage({ params,searchParams }: { params: Promise<{ role: string; section: string }>;searchParams:Promise<{q?:string}> }) {
+  const { role, section } = await params,queryParams=await searchParams,studentSearch=(queryParams.q??"").trim();
   if (!["admin", "teacher", "student"].includes(role) || !(section in sections)) redirect("/");
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -60,8 +60,9 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
     const byExam = new Map((assignments ?? []).map((assignment) => [assignment.exam_id, assignment]));
     rows = (exams ?? []).map((exam) => {
       const assignment = byExam.get(exam.id);
-      return { ...exam, assignment_id: assignment?.id, student_name: assignment ? names.get(assignment.student_id) ?? "Student" : "Student", visible: Boolean(assignment && !assignment.revoked_at) };
+      return { ...exam, assignment_id: assignment?.id, student_name: assignment ? names.get(assignment.student_id) ?? "Student" : "Student" };
     });
+    if(studentSearch)rows=rows.filter(row=>String(row.student_name??"").toLocaleLowerCase().includes(studentSearch.toLocaleLowerCase()));
   } else if (section === "students" && role !== "admin") {
     const teacher = role === "teacher";
     const field = teacher ? "student_id" : "teacher_id";
@@ -114,6 +115,7 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
     <section className="app-content">
       <Link className="back-link" href={`/${role}/dashboard`}><ArrowLeft size={16} />Back to dashboard</Link>
       <header className="section-title"><div><small>{role} workspace</small><h1>{title}</h1><p>{description}</p></div>{action}</header>
+      {section==="mistakes-exams"&&role==="teacher"&&<form className="panel student-name-search" method="get"><div className="field"><label htmlFor="student-search">Search by student name</label><div><Search size={18}/><input id="student-search" name="q" defaultValue={studentSearch} placeholder="Enter a student name"/></div></div><button className="button small" type="submit">Search</button>{studentSearch&&<Link className="button secondary small" href="/teacher/mistakes-exams">Clear</Link>}</form>}
       <section className="panel records-panel">
         {rows.length === 0 ? <div className="empty-state"><span><FileText /></span><h2>No records yet</h2><p>Records you are authorized to access will appear here.</p>{action && <div className="empty-action">{action}</div>}</div>
           : <div className="records">{rows.map((row, index) => {
@@ -123,7 +125,7 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
                 <b>{String(row.display_name ?? row.full_name ?? row.title ?? row.code_masked ?? row.action ?? "Record")}</b>
                 <small>{status === "archived" ? "Hidden" : String(row.status ?? row.entity_type ?? row.biography ?? (row.is_active === true ? "Active" : "Inactive"))}{row.duration_minutes ? ` · ${row.duration_minutes} minutes` : ""}</small>
                 {["invitation-codes","exams","videos","materials","study-notes"].includes(section)&&<EducationTargetBadge educationSystem={row.education_system} americanCategory={row.american_category} nationalGrade={row.national_grade}/>}
-                {section === "mistakes-exams" && Boolean(row.student_name) && <small>Student: {String(row.student_name)} · {Boolean(row.visible) ? "Visible" : "Hidden"}</small>}
+                {section === "mistakes-exams" && Boolean(row.student_name) && <small>Student: {String(row.student_name)} · Automatically visible</small>}
               </div>
               <div className="record-actions">
                 <time>{row.created_at ? new Date(String(row.created_at)).toLocaleDateString() : ""}</time>
@@ -131,7 +133,6 @@ export default async function SectionPage({ params }: { params: Promise<{ role: 
                 {reviewExam && <Link className="text-action" href={`/teacher/exams/${String(row.id)}/results`}>Results</Link>}
                 {createExam && <Link className="text-action" href={`/teacher/exams/${String(row.id)}/edit`}>Edit</Link>}
                 {createExam && ["published", "archived"].includes(status) && <form action={toggleExamVisibility}><input type="hidden" name="examId" value={String(row.id)} /><button className={`visibility-action ${status === "published" ? "hide" : "show"}`}>{status === "published" ? "Hide" : "Show"}</button></form>}
-                {section === "mistakes-exams" && Boolean(row.assignment_id) && <form action={toggleMistakesExamVisibility}><input type="hidden" name="assignmentId" value={String(row.assignment_id)} /><input type="hidden" name="visible" value={Boolean(row.visible) ? "false" : "true"} /><button className={`visibility-action ${Boolean(row.visible) ? "hide" : "show"}`}>{Boolean(row.visible) ? "Hide from student" : "Show to student"}</button></form>}
                 {reviewExam && <DeleteExamForm examId={String(row.id)} title={String(row.title ?? "exam")} />}
                 {createVideo && <Link className="text-action" href={`/teacher/videos/${String(row.id)}/edit`}>Edit</Link>}
                 {(createMaterial||createStudyNote)&&<Link className="text-action" href={`/teacher/${section}/${String(row.id)}/edit`}>Edit</Link>}
