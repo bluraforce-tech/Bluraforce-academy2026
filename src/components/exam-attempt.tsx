@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, CheckCircle2, Clock3, Send } from "lucide-react";
+import { FormattedQuestionText } from "@/components/formatted-question-text";
 
 type Choice = { id: string; text: string };
 type Question = {
@@ -193,7 +194,7 @@ export function ExamAttempt({
             Question {index + 1} · {question.points} points{" "}
             {saving === question.id && <span>Saving…</span>}
           </div>
-          <h2>{question.text}</h2>
+          <h2><FormattedQuestionText text={question.text}/></h2>
           {saving !== question.id && (answers[question.id]?.length ?? 0) > 0 && <span className="answer-saved"><Check size={13} /> Answer saved</span>}
           {question.imageUrl && !sharedImageUrls.has(question.imageUrl) && <div className="question-media-page"><img src={question.imageUrl} alt="Question" /></div>}
           <div className="attempt-choices">

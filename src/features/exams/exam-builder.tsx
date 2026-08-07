@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CheckCircle2, Clock3, Eye, FileQuestion, Plus, Trash2, Users, X } from "lucide-react";
 import { createExam } from "./actions";
 import {QuestionImageUpload} from "@/components/question-image-upload";
+import {QuestionTextEditor} from "@/components/question-text-editor";
 
 type Choice = { text: string; isCorrect: boolean };
 type Question = { text: string; imageUrl: string; points: number; choices: Choice[]; sourceId?: string; imageGroupIndex?: number; questionNumber?: number };
@@ -83,7 +84,8 @@ export function ExamBuilder({ students = [], questionBank = [] }: { students?: A
       <QuestionImageUpload fileName={`questionGroupImage_${groupId}`} onPreviewChange={url=>setGroupPreviews(value=>({...value,[groupId]:url}))}/>
       <div className="questions-under-image">{questions.map((question, questionIndex) => question.imageGroupIndex===groupId&&<section className="question-editor" key={questionIndex}>
       <div className="question-top"><label className="question-number-input"><span>Question number</span><input type="number" min="1" value={question.questionNumber ?? ""} onChange={(event)=>changeQ(questionIndex,{questionNumber:Number(event.target.value)})} required /></label>{questions.length > 1 && <button type="button" aria-label={`Delete question ${question.questionNumber ?? questionIndex + 1}`} onClick={() => setQuestions((value) => value.filter((_, index) => index !== questionIndex))}><Trash2 /></button>}</div>
-      <div className="field"><label>Question name or text</label><textarea value={question.text} onChange={(event) => changeQ(questionIndex, { text: event.target.value })} rows={3} required /></div>
+      <div className="field"><label>Question name or text</label><QuestionTextEditor value={question.text} onChange={text=>changeQ(questionIndex,{text})} required /></div>
+      <QuestionImageUpload fileName={`questionImage_${questionIndex}`} onPreviewChange={imageUrl=>changeQ(questionIndex,{imageUrl})}/>
       <div className="form-grid">
         <div className="field"><label>Points</label><input type="number" min=".01" step=".01" value={question.points} onChange={(event) => changeQ(questionIndex, { points: Number(event.target.value) })} /></div>
       </div>
