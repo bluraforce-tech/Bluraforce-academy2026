@@ -9,7 +9,13 @@ function parse(value:string):Node{
     if(!match){stack.at(-1)!.children.push(token);continue}
     const tag=match[1].toLowerCase(),closing=token.startsWith("</");
     if(tag==="br"){stack.at(-1)!.children.push("\n");continue}
-    if(tag==="div"||tag==="p"){if(closing)stack.at(-1)!.children.push("\n");continue}
+    if(tag==="div"||tag==="p"){
+      if(!closing){
+        const children=stack.at(-1)!.children,last=children.at(-1);
+        if(children.length>0&&!(typeof last==="string"&&last.endsWith("\n")))children.push("\n");
+      }
+      continue
+    }
     if(!allowed.has(tag))continue;
     if(closing){if(stack.length>1)stack.pop();continue}
     const node:Node={tag,children:[]};stack.at(-1)!.children.push(node);stack.push(node);
