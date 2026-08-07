@@ -19,7 +19,12 @@ function cairoLocalToUtc(value:string){
 export async function createExam(formData:FormData){
  const supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();if(!user)redirect("/auth/teacher/login");
  const target=await requireTeacherEducationTarget();let raw:unknown;try{raw={...JSON.parse(String(formData.get("payload")??"")),...target}}catch{redirect("/teacher/exams/new?error=invalid")}
- const parsed=exam.safeParse(raw);if(!parsed.success)redirect("/teacher/exams/new?error=invalid");
+ const parsed=exam.safeParse(raw);if(!parsed.success){
+  const issue=parsed.error.issues[0],path=issue.path.map(String),field=path[0]??"dates";
+  const reason=field==="questions"?(path.includes("choices")?"choices":path.includes("imageUrl")?"question-image":path.includes("points")||path.includes("position")?"question-points":"question-text"):field==="startsAt"||field==="endsAt"||field==="dates"?"dates":field==="educationSystem"||field==="nationalGrade"?"environment":field;
+  console.error("Exam validation failed",{reason,path,code:issue.code});
+  redirect(`/teacher/exams/new?error=invalid-${reason}`);
+ }
  let questionsWithImages=parsed.data.questions;try{const groupIds=[...new Set(questionsWithImages.flatMap(q=>q.imageGroupIndex===undefined?[]:[q.imageGroupIndex]))];const groupImages=new Map<number,string>();for(const groupId of groupIds){const image=await uploadQuestionImage(supabase,user.id,formData.get(`questionGroupImage_${groupId}`));if(image)groupImages.set(groupId,image)}questionsWithImages=await Promise.all(questionsWithImages.map(async(question,index)=>{const individualImage=await uploadQuestionImage(supabase,user.id,formData.get(`questionImage_${index}`));return {...question,imageUrl:individualImage??(question.imageGroupIndex===undefined?question.imageUrl:""),pageImageUrl:question.imageGroupIndex===undefined?"":groupImages.get(question.imageGroupIndex)??""};}))}catch{redirect("/teacher/exams/new?error=image")}
  const payload={...parsed.data,questions:questionsWithImages,startsAt:cairoLocalToUtc(parsed.data.startsAt),endsAt:cairoLocalToUtc(parsed.data.endsAt)};
  const {data:createdExamId,error}=await supabase.rpc("create_exam_with_questions",{p_payload:payload});
