@@ -37,6 +37,7 @@ export default async function AttemptPage({
         id: string;
         text: string;
         imageUrl: string | null;
+        pageImageUrl?: string | null;
         points: number;
         multiple: boolean;
         choices: Array<{ id: string; text: string }>;

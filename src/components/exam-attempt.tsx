@@ -10,6 +10,7 @@ type Question = {
   id: string;
   text: string;
   imageUrl: string | null;
+  pageImageUrl?: string | null;
   points: number;
   multiple: boolean;
   choices: Choice[];
@@ -139,12 +140,6 @@ export function ExamAttempt({
   const progress = exam.questions.length ? Math.round((answeredCount / exam.questions.length) * 100) : 0;
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;
-  const imageQuestions = new Map<string, number[]>();
-  exam.questions.forEach((question, index) => {
-    if (question.imageUrl) imageQuestions.set(question.imageUrl, [...(imageQuestions.get(question.imageUrl) ?? []), index + 1]);
-  });
-  const sharedImages = [...imageQuestions.entries()].filter(([, numbers]) => numbers.length > 1);
-  const sharedImageUrls = new Set(sharedImages.map(([url]) => url));
 
   return (
     <main className="attempt-page">
@@ -181,22 +176,16 @@ export function ExamAttempt({
       </div>
       </aside>
 
-      {sharedImages.map(([url, numbers]) => (
-        <section className="panel shared-question-stimulus" key={url}>
-          <div className="shared-question-label">Use this page for questions {numbers.join(", ")}</div>
-          <div className="question-media-page"><img src={url} alt={`Shared page for questions ${numbers.join(", ")}`} /></div>
-        </section>
-      ))}
-
       {exam.questions.map((question, index) => (
         <section className="panel attempt-question" id={`question-${index + 1}`} key={question.id}>
           <div className="question-number">
             Question {index + 1} · {question.points} points{" "}
             {saving === question.id && <span>Saving…</span>}
           </div>
+          {question.pageImageUrl && <div className="question-media-page"><img src={question.pageImageUrl} alt={`Page for question ${index + 1}`} /></div>}
+          {question.imageUrl && <div className="question-media-page question-specific-image"><img src={question.imageUrl} alt={`Question ${index + 1}`} /></div>}
           <h2><FormattedQuestionText text={question.text}/></h2>
           {saving !== question.id && (answers[question.id]?.length ?? 0) > 0 && <span className="answer-saved"><Check size={13} /> Answer saved</span>}
-          {question.imageUrl && !sharedImageUrls.has(question.imageUrl) && <div className="question-media-page"><img src={question.imageUrl} alt="Question" /></div>}
           <div className="attempt-choices">
             {question.choices.map((choice,choiceIndex) => {
               const letter=String.fromCharCode(65+choiceIndex);

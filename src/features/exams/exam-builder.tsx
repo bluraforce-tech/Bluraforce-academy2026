@@ -638,18 +638,6 @@ export function ExamBuilder({
                       questions
                     </small>
                   </div>
-                  {groupPreviews[groupId] ? (
-                    <div className="question-media-page">
-                      <img
-                        src={groupPreviews[groupId]}
-                        alt={`Uploaded exam page ${pageIndex + 1}`}
-                      />
-                    </div>
-                  ) : (
-                    <div className="preview-image-empty">
-                      No image uploaded for this page yet
-                    </div>
-                  )}
                   <div className="preview-question-list">
                     {questions
                       .filter(
@@ -664,6 +652,16 @@ export function ExamBuilder({
                             <b>Question {question.questionNumber || "—"}</b>
                             <span>{question.points} points</span>
                           </div>
+                          {groupPreviews[groupId] && (
+                            <div className="question-media-page">
+                              <img src={groupPreviews[groupId]} alt={`Uploaded exam page ${pageIndex + 1}`} />
+                            </div>
+                          )}
+                          {question.imageUrl && (
+                            <div className="question-media-page question-specific-image">
+                              <img src={question.imageUrl} alt={`Question ${question.questionNumber || index + 1}`} />
+                            </div>
+                          )}
                           <h2>
                             <FormattedQuestionText text={question.text || "Question text will appear here"} />
                           </h2>
