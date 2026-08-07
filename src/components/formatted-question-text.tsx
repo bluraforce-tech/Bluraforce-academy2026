@@ -1,17 +1,28 @@
 import { Fragment, type ReactNode } from "react";
 
-const formats = [
-  { open: "**", close: "**", wrap: (children: ReactNode) => <strong>{children}</strong> },
-  { open: "~~", close: "~~", wrap: (children: ReactNode) => <s>{children}</s> },
-  { open: "[u]", close: "[/u]", wrap: (children: ReactNode) => <u>{children}</u> },
-  { open: "*", close: "*", wrap: (children: ReactNode) => <em>{children}</em> },
-] as const;
-function renderText(value: string, key = "text"): ReactNode {
-  let first: { index: number; format: (typeof formats)[number] } | null = null;
-  for (const format of formats) { const index = value.indexOf(format.open); if (index >= 0 && (!first || index < first.index)) first = { index, format }; }
-  if (!first) return value;
-  const start = first.index + first.format.open.length, end = value.indexOf(first.format.close, start);
-  if (end < 0) return value;
-  return <Fragment key={key}>{renderText(value.slice(0, first.index), `${key}-before`)}{first.format.wrap(renderText(value.slice(start, end), `${key}-inside`))}{renderText(value.slice(end + first.format.close.length), `${key}-after`)}</Fragment>;
+type Node = { tag?: string; children: Array<Node|string> };
+const allowed = new Set(["b","strong","i","em","u","s","strike"]);
+function parse(value:string):Node{
+  const root:Node={children:[]},stack=[root],tokens=value.split(/(<\/?[a-z]+(?:\s[^>]*)?>)/gi);
+  for(const token of tokens){
+    const match=token.match(/^<\/?([a-z]+)/i);
+    if(!match){stack.at(-1)!.children.push(token);continue}
+    const tag=match[1].toLowerCase(),closing=token.startsWith("</");
+    if(tag==="br"){stack.at(-1)!.children.push("\n");continue}
+    if(tag==="div"||tag==="p"){if(closing)stack.at(-1)!.children.push("\n");continue}
+    if(!allowed.has(tag))continue;
+    if(closing){if(stack.length>1)stack.pop();continue}
+    const node:Node={tag,children:[]};stack.at(-1)!.children.push(node);stack.push(node);
+  }
+  return root;
 }
-export function FormattedQuestionText({ text }: { text: string }) { return <>{renderText(text)}</>; }
+function render(node:Node|string,key:string):ReactNode{
+  if(typeof node==="string")return node;
+  const children=node.children.map((child,index)=><Fragment key={`${key}-${index}`}>{render(child,`${key}-${index}`)}</Fragment>);
+  if(node.tag==="b"||node.tag==="strong")return <strong>{children}</strong>;
+  if(node.tag==="i"||node.tag==="em")return <em>{children}</em>;
+  if(node.tag==="u")return <u>{children}</u>;
+  if(node.tag==="s"||node.tag==="strike")return <s>{children}</s>;
+  return children;
+}
+export function FormattedQuestionText({text}:{text:string}){return <>{render(parse(text),"question")}</>}
