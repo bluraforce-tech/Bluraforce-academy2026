@@ -464,11 +464,10 @@ export function ExamBuilder({
                       )}
                     </div>
                     <div className="field">
-                      <label>Question name or text</label>
+                      <label>Question name or text <small>Optional</small></label>
                       <QuestionTextEditor
                         value={question.text}
                         onChange={(text) => changeQ(questionIndex, { text })}
-                        required
                       />
                     </div>
                     <QuestionImageUpload
@@ -676,9 +675,7 @@ export function ExamBuilder({
                               <img src={question.imageUrl} alt={`Question ${question.questionNumber || index + 1}`} />
                             </div>
                           )}
-                          <h2>
-                            <FormattedQuestionText text={question.text || "Question text will appear here"} />
-                          </h2>
+                          {question.text&&<h2><FormattedQuestionText text={question.text} /></h2>}
                           <div className="preview-choices">
                             {question.choices.map((choice, choiceIndex) => (
                               <div key={choiceIndex}>
@@ -716,9 +713,7 @@ export function ExamBuilder({
                             <b>Question {question.questionNumber || "—"}</b>
                             <span>{question.points} points</span>
                           </div>
-                          <h2>
-                            <FormattedQuestionText text={question.text || "Question text will appear here"} />
-                          </h2>
+                          {question.text&&<h2><FormattedQuestionText text={question.text} /></h2>}
                           {question.imageUrl && (
                             <div className="question-media-page">
                               <img src={question.imageUrl} alt="Question" />
@@ -768,13 +763,12 @@ export function ExamBuilder({
                     </button>
                   </div>
                   <div className="field">
-                    <label>Question name or text</label>
+                    <label>Question name or text <small>Optional</small></label>
                     <textarea
                       value={question.text}
                       onChange={(e) =>
                         changeQ(questionIndex, { text: e.target.value })
                       }
-                      required
                     />
                   </div>
                   <QuestionImageUpload
