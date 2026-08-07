@@ -57,6 +57,7 @@ export function ExamBuilder({
   const [assignAll, setAssignAll] = useState(true);
   const [title, setTitle] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [submitting, setSubmitting] = useState<"draft" | "publish" | null>(null);
   const [groupPreviews, setGroupPreviews] = useState<Record<number, string>>(
     {},
   );
@@ -153,6 +154,7 @@ export function ExamBuilder({
         const submitter = (event.nativeEvent as SubmitEvent)
           .submitter as HTMLButtonElement | null;
         const publish = submitter?.value === "publish";
+        setSubmitting(publish ? "publish" : "draft");
         const payload = {
           title: form.get("title"),
           description: form.get("description"),
@@ -844,18 +846,21 @@ export function ExamBuilder({
           name="publishIntent"
           value="draft"
           className="button secondary"
+          disabled={submitting !== null}
         >
-          Save draft
+          {submitting === "draft" ? "Saving draft…" : "Save draft"}
         </button>
         <button
           type="submit"
           name="publishIntent"
           value="publish"
           className="button"
+          disabled={submitting !== null}
         >
-          Publish & assign
+          {submitting === "publish" ? "Publishing…" : "Publish & assign"}
         </button>
       </div>
+      {submitting&&<div className="exam-submit-overlay" role="status" aria-live="polite"><div><span className="submit-spinner" aria-hidden="true"/><strong>{submitting==="publish"?"Publishing exam…":"Saving draft…"}</strong><p>Please keep this page open while images and questions are saved.</p></div></div>}
     </form>
   );
 }
