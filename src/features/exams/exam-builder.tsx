@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useFormStatus } from "react-dom";
 import {
   CheckCircle2,
   Clock3,
@@ -43,6 +44,19 @@ const abcd = (): Choice[] =>
     isCorrect: index === 0,
   }));
 
+function ExamSubmitControls() {
+  const { pending, data } = useFormStatus();
+  const publishing = data?.get("publishIntent") === "publish";
+  return <>
+    <div className="builder-actions panel">
+      <p><strong>Ready to finish?</strong><span>Save a draft to continue later, or publish it to your students now.</span></p>
+      <button type="submit" name="publishIntent" value="draft" className="button secondary" disabled={pending}>{pending&&!publishing?"Saving draft…":"Save draft"}</button>
+      <button type="submit" name="publishIntent" value="publish" className="button" disabled={pending}>{pending&&publishing?"Publishing…":"Publish & assign"}</button>
+    </div>
+    {pending&&<div className="exam-submit-overlay" role="status" aria-live="polite"><div><span className="submit-spinner" aria-hidden="true"/><strong>{publishing?"Publishing exam…":"Saving draft…"}</strong><p>Please keep this page open while images and questions are saved.</p></div></div>}
+  </>;
+}
+
 export function ExamBuilder({
   students = [],
   questionBank = [],
@@ -57,7 +71,6 @@ export function ExamBuilder({
   const [assignAll, setAssignAll] = useState(true);
   const [title, setTitle] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [submitting, setSubmitting] = useState<"draft" | "publish" | null>(null);
   const [groupPreviews, setGroupPreviews] = useState<Record<number, string>>(
     {},
   );
@@ -154,7 +167,6 @@ export function ExamBuilder({
         const submitter = (event.nativeEvent as SubmitEvent)
           .submitter as HTMLButtonElement | null;
         const publish = submitter?.value === "publish";
-        setSubmitting(publish ? "publish" : "draft");
         const payload = {
           title: form.get("title"),
           description: form.get("description"),
@@ -834,33 +846,7 @@ export function ExamBuilder({
           )}
         </>
       )}
-      <div className="builder-actions panel">
-        <p>
-          <strong>Ready to finish?</strong>
-          <span>
-            Save a draft to continue later, or publish it to your students now.
-          </span>
-        </p>
-        <button
-          type="submit"
-          name="publishIntent"
-          value="draft"
-          className="button secondary"
-          disabled={submitting !== null}
-        >
-          {submitting === "draft" ? "Saving draft…" : "Save draft"}
-        </button>
-        <button
-          type="submit"
-          name="publishIntent"
-          value="publish"
-          className="button"
-          disabled={submitting !== null}
-        >
-          {submitting === "publish" ? "Publishing…" : "Publish & assign"}
-        </button>
-      </div>
-      {submitting&&<div className="exam-submit-overlay" role="status" aria-live="polite"><div><span className="submit-spinner" aria-hidden="true"/><strong>{submitting==="publish"?"Publishing exam…":"Saving draft…"}</strong><p>Please keep this page open while images and questions are saved.</p></div></div>}
+      <ExamSubmitControls />
     </form>
   );
 }
