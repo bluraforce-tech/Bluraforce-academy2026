@@ -12,7 +12,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { createExam } from "./actions";
+import { createExam, updateExam } from "./actions";
 import { QuestionImageUpload } from "@/components/question-image-upload";
 import { QuestionTextEditor } from "@/components/question-text-editor";
 import { FormattedQuestionText } from "@/components/formatted-question-text";
@@ -21,12 +21,14 @@ type Choice = { text: string; isCorrect: boolean };
 type Question = {
   text: string;
   imageUrl: string;
+  pageImageUrl?: string;
   points: number;
   choices: Choice[];
   sourceId?: string;
   imageGroupIndex?: number;
   questionNumber?: number;
 };
+export type InitialExam = {id:string;title:string;description:string;instructions:string;durationMinutes:number;startsAt:string;endsAt:string;maxAttempts:number;passingScore:string;randomizeQuestions:boolean;randomizeChoices:boolean;studentIds:string[];questions:Question[]};
 export type BankQuestion = Question & { sourceId: string; sourceTitle: string };
 const blank = (questionNumber = 1): Question => ({
   text: "",
@@ -60,19 +62,19 @@ function ExamSubmitControls() {
 export function ExamBuilder({
   students = [],
   questionBank = [],
+  initial,
 }: {
   students?: Array<{ id: string; name: string }>;
   questionBank?: BankQuestion[];
+  initial?: InitialExam;
 }) {
-  const [questions, setQuestions] = useState<Question[]>([
-    { ...blank(), imageGroupIndex: 0 },
-  ]);
-  const [imageGroups, setImageGroups] = useState<number[]>([0]);
-  const [assignAll, setAssignAll] = useState(true);
-  const [title, setTitle] = useState("");
+  const [questions, setQuestions] = useState<Question[]>(initial?.questions??[{ ...blank(), imageGroupIndex: 0 }]);
+  const [imageGroups, setImageGroups] = useState<number[]>(initial?[...new Set(initial.questions.flatMap(q=>q.imageGroupIndex===undefined?[]:[q.imageGroupIndex]))]:[0]);
+  const [assignAll, setAssignAll] = useState(!initial||initial.studentIds.length===students.length);
+  const [title, setTitle] = useState(initial?.title??"");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [groupPreviews, setGroupPreviews] = useState<Record<number, string>>(
-    {},
+    Object.fromEntries((initial?.questions??[]).flatMap(q=>q.imageGroupIndex===undefined||!q.pageImageUrl?[]:[[q.imageGroupIndex,q.pageImageUrl]])),
   );
   const changeQ = (i: number, patch: Partial<Question>) =>
     setQuestions((value) =>
@@ -160,7 +162,7 @@ export function ExamBuilder({
 
   return (
     <form
-      action={createExam}
+      action={initial?updateExam:createExam}
       className="exam-builder"
       onSubmit={(event) => {
         const form = new FormData(event.currentTarget);
@@ -197,6 +199,7 @@ export function ExamBuilder({
       }}
     >
       <input type="hidden" name="payload" />
+      {initial && <input type="hidden" name="examId" value={initial.id} />}
       <section className="builder-overview" aria-label="Exam overview">
         <div>
           <FileQuestion />
@@ -252,25 +255,25 @@ export function ExamBuilder({
             type="number"
             min={1}
             max={600}
-            defaultValue={30}
+            defaultValue={initial?.durationMinutes??30}
             required
           />
         </div>
         <div className="field full">
           <label>Description</label>
-          <textarea name="description" rows={3} />
+          <textarea name="description" rows={3} defaultValue={initial?.description??""}/>
         </div>
         <div className="field full">
           <label>Instructions</label>
-          <textarea name="instructions" rows={3} />
+          <textarea name="instructions" rows={3} defaultValue={initial?.instructions??""}/>
         </div>
         <div className="field">
           <label>Starts at</label>
-          <input name="startsAt" type="datetime-local" />
+          <input name="startsAt" type="datetime-local" defaultValue={initial?.startsAt??""}/>
         </div>
         <div className="field">
           <label>Ends at</label>
-          <input name="endsAt" type="datetime-local" />
+          <input name="endsAt" type="datetime-local" defaultValue={initial?.endsAt??""}/>
         </div>
         <div className="field">
           <label>Maximum attempts</label>
@@ -279,21 +282,21 @@ export function ExamBuilder({
             type="number"
             min={1}
             max={20}
-            defaultValue={1}
+            defaultValue={initial?.maxAttempts??1}
           />
         </div>
         <div className="field">
           <label>Passing score</label>
-          <input name="passingScore" type="number" min={0} step=".01" />
+          <input name="passingScore" type="number" min={0} step=".01" defaultValue={initial?.passingScore??""}/>
         </div>
         <label className="check">
-          <input name="randomizeQuestions" type="checkbox" />
+          <input name="randomizeQuestions" type="checkbox" defaultChecked={initial?.randomizeQuestions??false}/>
           <span>
             <b>Randomize questions</b>
           </span>
         </label>
         <label className="check">
-          <input name="randomizeChoices" type="checkbox" />
+          <input name="randomizeChoices" type="checkbox" defaultChecked={initial?.randomizeChoices??false}/>
           <span>
             <b>Randomize choices</b>
           </span>
@@ -312,7 +315,7 @@ export function ExamBuilder({
           <div className="student-selector full">
             {students.map((student) => (
               <label key={student.id}>
-                <input type="checkbox" name="studentIds" value={student.id} />
+                <input type="checkbox" name="studentIds" value={student.id} defaultChecked={initial?.studentIds.includes(student.id)??false}/>
                 {student.name}
               </label>
             ))}
@@ -422,6 +425,7 @@ export function ExamBuilder({
             )}
           </div>
           <QuestionImageUpload
+            value={groupPreviews[groupId]??""}
             fileName={`questionGroupImage_${groupId}`}
             onPreviewChange={(url) =>
               setGroupPreviews((value) => ({ ...value, [groupId]: url }))
@@ -471,6 +475,7 @@ export function ExamBuilder({
                       />
                     </div>
                     <QuestionImageUpload
+                      value={question.imageUrl}
                       fileName={`questionImage_${questionIndex}`}
                       onPreviewChange={(imageUrl) =>
                         changeQ(questionIndex, { imageUrl })
