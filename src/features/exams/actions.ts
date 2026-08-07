@@ -31,7 +31,7 @@ export async function createExam(formData:FormData){
  if(targetError)redirect("/teacher/exams/new?error=create");
  revalidatePath("/teacher/exams");
  revalidatePath("/teacher/dashboard");
- redirect("/teacher/exams?created=1");
+ redirect(`/teacher/exams?created=${payload.publish?"published":"draft"}${payload.publish?"":"&status=draft"}`);
 }
 export async function updateExam(formData:FormData){
  const supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();if(!user)redirect("/auth/teacher/login");

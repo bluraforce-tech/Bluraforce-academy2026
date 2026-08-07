@@ -35,8 +35,9 @@ const nav = [
   ["Study Notes", "study-notes", FileText],
 ] as const;
 
-export default async function SectionPage({ params,searchParams }: { params: Promise<{ role: string; section: string }>;searchParams:Promise<{q?:string}> }) {
+export default async function SectionPage({ params,searchParams }: { params: Promise<{ role: string; section: string }>;searchParams:Promise<{q?:string;status?:string;created?:string}> }) {
   const { role, section } = await params,queryParams=await searchParams,studentSearch=(queryParams.q??"").trim();
+  const examStatus=["draft","published","archived"].includes(queryParams.status??"")?queryParams.status:null;
   if (!["admin", "teacher", "student"].includes(role) || !(section in sections)) redirect("/");
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -83,6 +84,7 @@ export default async function SectionPage({ params,searchParams }: { params: Pro
       else if(teacherTarget.educationSystem==="national")query=query.eq("national_grade",teacherTarget.nationalGrade);
     }
     if (section === "exams") query = query.eq("kind", "standard");
+    if (section === "exams" && role === "teacher" && examStatus) query = query.eq("status", examStatus);
     if (section === "mistakes-exams") query = query.eq("kind", "mistakes");
     if (section === "materials") query = query.eq("resource_kind", "material_book");
     if (section === "study-notes") query = query.eq("resource_kind", "study_note");
@@ -115,15 +117,18 @@ export default async function SectionPage({ params,searchParams }: { params: Pro
     <section className="app-content">
       <Link className="back-link" href={`/${role}/dashboard`}><ArrowLeft size={16} />Back to dashboard</Link>
       <header className="section-title"><div><small>{role} workspace</small><h1>{title}</h1><p>{description}</p></div>{action}</header>
+      {createExam&&<nav className="exam-status-filters" aria-label="Filter exams by status"><Link className={!examStatus?"active":""} href="/teacher/exams">All exams</Link><Link className={examStatus==="draft"?"active":""} href="/teacher/exams?status=draft">Drafts</Link><Link className={examStatus==="published"?"active":""} href="/teacher/exams?status=published">Published</Link><Link className={examStatus==="archived"?"active":""} href="/teacher/exams?status=archived">Hidden</Link></nav>}
+      {createExam&&queryParams.created==="draft"&&<p className="form-success">Draft saved. You can find it below and continue with Edit.</p>}
+      {createExam&&queryParams.created==="published"&&<p className="form-success">Exam published successfully.</p>}
       {section==="mistakes-exams"&&role==="teacher"&&<form className="panel student-name-search" method="get"><div className="field"><label htmlFor="student-search">Search by student name</label><div><Search size={18}/><input id="student-search" name="q" defaultValue={studentSearch} placeholder="Enter a student name"/></div></div><button className="button small" type="submit">Search</button>{studentSearch&&<Link className="button secondary small" href="/teacher/mistakes-exams">Clear</Link>}</form>}
       <section className="panel records-panel">
-        {rows.length === 0 ? <div className="empty-state"><span><FileText /></span><h2>No records yet</h2><p>Records you are authorized to access will appear here.</p>{action && <div className="empty-action">{action}</div>}</div>
+        {rows.length === 0 ? <div className="empty-state"><span><FileText /></span><h2>{createExam&&examStatus?`No ${examStatus==="archived"?"hidden":examStatus} exams`:"No records yet"}</h2><p>{createExam&&examStatus==="draft"?"Draft exams saved in this teaching environment will appear here.":"Records you are authorized to access will appear here."}</p>{action && <div className="empty-action">{action}</div>}</div>
           : <div className="records">{rows.map((row, index) => {
             const status = String(row.status ?? "");
             return <article key={String(row.id ?? row.user_id ?? index)}>
               <div>
                 <b>{String(row.display_name ?? row.full_name ?? row.title ?? row.code_masked ?? row.action ?? "Record")}</b>
-                <small>{status === "archived" ? "Hidden" : String(row.status ?? row.entity_type ?? row.biography ?? (row.is_active === true ? "Active" : "Inactive"))}{row.duration_minutes ? ` · ${row.duration_minutes} minutes` : ""}</small>
+                <small>{status === "archived" ? "Hidden" : status === "draft" ? "Draft — not visible to students" : status === "published" ? "Published" : String(row.status ?? row.entity_type ?? row.biography ?? (row.is_active === true ? "Active" : "Inactive"))}{row.duration_minutes ? ` · ${row.duration_minutes} minutes` : ""}</small>
                 {["invitation-codes","exams","videos","materials","study-notes"].includes(section)&&<EducationTargetBadge educationSystem={row.education_system} americanCategory={row.american_category} nationalGrade={row.national_grade}/>}
                 {section === "mistakes-exams" && Boolean(row.student_name) && <small>Student: {String(row.student_name)} · Automatically visible</small>}
               </div>

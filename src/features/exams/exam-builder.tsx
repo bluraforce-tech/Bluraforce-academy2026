@@ -14,7 +14,6 @@ const abcd=():Choice[]=>["A","B","C","D"].map((_,index)=>({text:"",isCorrect:ind
 export function ExamBuilder({ students = [], questionBank = [] }: { students?: Array<{ id:string;name:string }>; questionBank?:BankQuestion[] }) {
   const [questions, setQuestions] = useState<Question[]>([{...blank(),imageGroupIndex:0}]);
   const [imageGroups,setImageGroups]=useState<number[]>([0]);
-  const [publish, setPublish] = useState(false);
   const [assignAll, setAssignAll] = useState(true);
   const [title,setTitle]=useState("");
   const [previewOpen,setPreviewOpen]=useState(false);
@@ -41,6 +40,8 @@ export function ExamBuilder({ students = [], questionBank = [] }: { students?: A
 
   return <form action={createExam} className="exam-builder" onSubmit={(event) => {
     const form = new FormData(event.currentTarget);
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const publish = submitter?.value === "publish";
     const payload = {
       title: form.get("title"), description: form.get("description"), instructions: form.get("instructions"),
       durationMinutes: Number(form.get("durationMinutes")), startsAt: form.get("startsAt"), endsAt: form.get("endsAt"),
@@ -118,8 +119,8 @@ export function ExamBuilder({ students = [], questionBank = [] }: { students?: A
     {questions.some(q=>q.imageGroupIndex===undefined)&&<><div className="builder-heading"><h2>Questions from your bank</h2></div>{questions.map((question,questionIndex)=>question.imageGroupIndex===undefined&&<section className="panel question-editor" key={questionIndex}><div className="question-top"><b>Question {questionIndex+1}</b><button type="button" onClick={()=>setQuestions(v=>v.filter((_,i)=>i!==questionIndex))}><Trash2/></button></div><div className="field"><label>Question name or text</label><textarea value={question.text} onChange={e=>changeQ(questionIndex,{text:e.target.value})} required/></div><QuestionImageUpload value={question.imageUrl} fileName={`questionImage_${questionIndex}`} onChange={imageUrl=>changeQ(questionIndex,{imageUrl})}/><div className="field"><label>Points</label><input type="number" min=".01" step=".01" value={question.points} onChange={e=>changeQ(questionIndex,{points:Number(e.target.value)})}/></div><div className="choice-tools"><b>Answer choices</b><button className="button secondary small generate-choices-button" type="button" onClick={()=>changeQ(questionIndex,{choices:abcd()})}>Generate A–D choices</button></div><div className="choices">{question.choices.map((choice,choiceIndex)=><div className="choice-row" key={choiceIndex}><span className="choice-letter">{String.fromCharCode(65+choiceIndex)}</span><input value={choice.text} placeholder={`Option ${String.fromCharCode(65+choiceIndex)}`} onChange={e=>changeC(questionIndex,choiceIndex,{text:e.target.value})} required/><label><input type="checkbox" checked={choice.isCorrect} onChange={e=>changeC(questionIndex,choiceIndex,{isCorrect:e.target.checked})}/>Correct</label></div>)}</div></section>)}</>}
     <div className="builder-actions panel">
       <p><strong>Ready to finish?</strong><span>Save a draft to continue later, or publish it to your students now.</span></p>
-      <button type="submit" className="button secondary" onClick={() => setPublish(false)}>Save draft</button>
-      <button type="submit" className="button" onClick={() => setPublish(true)}>Publish & assign</button>
+      <button type="submit" name="publishIntent" value="draft" className="button secondary">Save draft</button>
+      <button type="submit" name="publishIntent" value="publish" className="button">Publish & assign</button>
     </div>
   </form>;
 }
