@@ -7,8 +7,8 @@ import {requireTeacherEducationTarget} from "@/lib/teacher-education-context";
 
 function localValue(value:string|null){if(!value)return "";return new Intl.DateTimeFormat("sv-SE",{timeZone:"Africa/Cairo",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(value)).replace(" ","T")}
 
-export default async function EditExam({params,searchParams}:{params:Promise<{examId:string}>;searchParams:Promise<{error?:string}>}){
- const {examId}=await params,query=await searchParams,supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();
+export default async function EditExam({params}:{params:Promise<{examId:string}>}){
+ const {examId}=await params,supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();
  if(!user)redirect("/auth/teacher/login");
  const target=await requireTeacherEducationTarget();
  let examQuery=supabase.from("exams").select("id,title,description,instructions,duration_minutes,starts_at,ends_at,status,max_attempts,randomize_questions,randomize_choices,published_version_id").eq("id",examId).eq("teacher_id",user.id).eq("education_system",target.educationSystem);
@@ -25,5 +25,5 @@ export default async function EditExam({params,searchParams}:{params:Promise<{ex
  const pageGroups=new Map<string,number>();let nextGroup=0;
  const initialQuestions=(questions??[]).map(q=>{const legacyPage=!q.page_image_url&&q.image_url&&(imageCounts.get(q.image_url)??0)>1,qImage=legacyPage?"":q.image_url??"",page=q.page_image_url??(legacyPage?q.image_url:"");if(!pageGroups.has(page))pageGroups.set(page,nextGroup++);return {text:q.text??"",imageUrl:qImage,pageImageUrl:page,points:Number(q.points),questionNumber:q.position,imageGroupIndex:pageGroups.get(page)!,choices:q.question_choices.sort((a,b)=>a.position-b.position).map(c=>({text:c.text,isCorrect:c.is_correct}))}});
  const initial:InitialExam={id:exam.id,title:exam.title,description:exam.description??"",instructions:exam.instructions??"",durationMinutes:exam.duration_minutes,startsAt:localValue(exam.starts_at),endsAt:localValue(exam.ends_at),maxAttempts:exam.max_attempts,passingScore:String(latest?.passing_score??""),randomizeQuestions:exam.randomize_questions,randomizeChoices:exam.randomize_choices,studentIds:(assignments??[]).filter(a=>!a.revoked_at).map(a=>a.student_id),questions:initialQuestions};
- return <main className="app-content exam-page"><Link className="back-link" href="/teacher/exams"><ArrowLeft/>Back to exams</Link><header><div><small>Teacher workspace</small><h1>Edit exam</h1><p>Edit every part of the exam. Publishing creates a new immutable version for future attempts.</p></div></header>{query.error&&<p className="form-error">The exam could not be updated. Check the highlighted content and try again.</p>}<ExamBuilder students={(profiles??[]).map(x=>({id:x.id,name:x.full_name}))} initial={initial}/></main>;
+ return <main className="app-content exam-page"><Link className="back-link" href="/teacher/exams"><ArrowLeft/>Back to exams</Link><header><div><small>Teacher workspace</small><h1>Edit exam</h1><p>Edit every part of the exam. Publishing creates a new immutable version for future attempts.</p></div></header><ExamBuilder students={(profiles??[]).map(x=>({id:x.id,name:x.full_name}))} initial={initial}/></main>;
 }

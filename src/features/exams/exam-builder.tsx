@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   CheckCircle2,
@@ -76,6 +76,7 @@ export function ExamBuilder({
   const [groupPreviews, setGroupPreviews] = useState<Record<number, string>>(
     Object.fromEntries((initial?.questions??[]).flatMap(q=>q.imageGroupIndex===undefined||!q.pageImageUrl?[]:[[q.imageGroupIndex,q.pageImageUrl]])),
   );
+  const [updateState,updateAction]=useActionState(updateExam,{error:null});
   const changeQ = (i: number, patch: Partial<Question>) =>
     setQuestions((value) =>
       value.map((question, index) =>
@@ -162,7 +163,7 @@ export function ExamBuilder({
 
   return (
     <form
-      action={initial?updateExam:createExam}
+      action={initial?updateAction:createExam}
       className="exam-builder"
       onSubmit={(event) => {
         const form = new FormData(event.currentTarget);
@@ -200,6 +201,7 @@ export function ExamBuilder({
     >
       <input type="hidden" name="payload" />
       {initial && <input type="hidden" name="examId" value={initial.id} />}
+      {initial&&updateState.error&&<p className="form-error exam-update-error" role="alert"><strong>Changes not saved.</strong> {updateState.error}</p>}
       <section className="builder-overview" aria-label="Exam overview">
         <div>
           <FileQuestion />
