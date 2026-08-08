@@ -1,28 +1,427 @@
 "use client";
-import {useState} from "react";
-import {BookOpen,ClipboardCheck,Plus,Trash2,X} from "lucide-react";
-import {createActivityWithUploadedQuestions as createActivityWithQuestions} from "./image-actions";
-import {QuestionImageUpload} from "@/components/question-image-upload";
-type Kind="self_practice"|"homework";type OldQuestion={id:string;text:string;points:number};type Choice={text:string;isCorrect:boolean};type NewQuestion={text:string;imageUrl:string;points:number;choices:Choice[];imageGroupIndex:number};type ImageGroup={id:number;questions:NewQuestion[]};
-const blank=(groupId:number):NewQuestion=>({text:"",imageUrl:"",points:1,imageGroupIndex:groupId,choices:[{text:"",isCorrect:true},{text:"",isCorrect:false}]});
-const abcd=():Choice[]=>["A","B","C","D"].map((_,index)=>({text:"",isCorrect:index===0}));
-export function ActivityForm({unitId,oldQuestions,initialKind=null,assignmentMode=false}:{unitId:string;oldQuestions:OldQuestion[];initialKind?:Kind|null;assignmentMode?:boolean}){
- const [kind,setKind]=useState<Kind|null>(initialKind),[selected,setSelected]=useState<string[]>([]),[groups,setGroups]=useState<ImageGroup[]>([{id:0,questions:[blank(0)]}]);
- if(!kind)return <div className="activity-kind-actions"><button className="activity-kind-card" type="button" onClick={()=>setKind("self_practice")}><BookOpen/><span><b>Create Self Practice</b><small>Untimed and without a deadline</small></span></button><button className="activity-kind-card homework" type="button" onClick={()=>setKind("homework")}><ClipboardCheck/><span><b>Create Homework</b><small>Untimed with a submission deadline</small></span></button></div>;
- const homework=kind==="homework";
- const changeQuestion=(groupId:number,questionIndex:number,patch:Partial<NewQuestion>)=>setGroups(value=>value.map(group=>group.id===groupId?{...group,questions:group.questions.map((question,index)=>index===questionIndex?{...question,...patch}:question)}:group));
- const changeChoice=(groupId:number,questionIndex:number,choiceIndex:number,patch:Partial<Choice>)=>setGroups(value=>value.map(group=>group.id===groupId?{...group,questions:group.questions.map((question,index)=>index===questionIndex?{...question,choices:question.choices.map((choice,i)=>i===choiceIndex?{...choice,...patch}:choice)}:question)}:group));
- return <form action={createActivityWithQuestions} className="activity-builder" onSubmit={event=>{const form=new FormData(event.currentTarget);const newQuestions=groups.flatMap(group=>group.questions).map(question=>({...question,choices:question.choices.map((choice,index)=>({...choice,text:choice.text.trim()||String.fromCharCode(65+index)}))}));(event.currentTarget.elements.namedItem("payload") as HTMLInputElement).value=JSON.stringify({unitId,kind,title:form.get("title"),deadline:form.get("deadline")||null,assignAll:form.get("assignAll")==="on",questionIds:selected,newQuestions,assignmentMode})}}>
-  <input type="hidden" name="payload"/><div className="activity-form-title"><div><b>{assignmentMode?"Add Assignment":homework?"Create Homework":"Create Self Practice"}</b><small>Choose saved questions and/or add image pages with questions underneath.</small></div>{!initialKind&&<button type="button" className="text-action" onClick={()=>setKind(null)}><X/>Cancel</button>}</div>
-  <div className="form-grid"><div className="field"><label>Title</label><input name="title" required/></div>{homework&&<div className="field"><label>Submission deadline</label><input name="deadline" type="datetime-local" required/></div>}</div>
-  <section className="activity-question-source"><h3>Choose from old questions</h3>{oldQuestions.length?<div className="old-question-picker">{oldQuestions.map(question=><label key={question.id}><input type="checkbox" checked={selected.includes(question.id)} onChange={event=>setSelected(value=>event.target.checked?[...value,question.id]:value.filter(id=>id!==question.id))}/><span><b>{question.text}</b><small>{question.points} points</small></span></label>)}</div>:<p>{assignmentMode?"No saved questions yet. Add an image page below.":"No old questions in this Unit yet. Add an image page below."}</p>}</section>
-  <section className="activity-new-questions"><div className="panel-head"><div><h3>Question pages</h3><p>Each image can contain several separately named and graded questions.</p></div></div>
-   {groups.map((group,pageIndex)=><article className="question-page-group" key={group.id}><div className="question-page-heading"><div><small>QUESTION PAGE {pageIndex+1}</small><h3>Upload image, then add its questions</h3></div>{groups.length>1&&<button type="button" className="text-action danger" onClick={()=>setGroups(value=>value.filter(item=>item.id!==group.id))}><Trash2/>Remove page</button>}</div><QuestionImageUpload fileName={`questionGroupImage_${group.id}`}/><div className="questions-under-image">
-    {group.questions.map((question,questionIndex)=><section className="question-editor" key={questionIndex}><div className="question-top"><b>Question {questionIndex+1}</b>{group.questions.length>1&&<button type="button" onClick={()=>setGroups(value=>value.map(item=>item.id===group.id?{...item,questions:item.questions.filter((_,index)=>index!==questionIndex)}:item))}><Trash2/></button>}</div><div className="field"><label>Question number, name, or text</label><textarea value={question.text} onChange={event=>changeQuestion(group.id,questionIndex,{text:event.target.value})} required/></div><div className="field"><label>Points</label><input type="number" min=".01" step=".01" value={question.points} onChange={event=>changeQuestion(group.id,questionIndex,{points:Number(event.target.value)})}/></div>
-     <div className="choice-tools"><b>Answer choices</b><button className="button secondary small generate-choices-button" type="button" onClick={()=>changeQuestion(group.id,questionIndex,{choices:abcd()})}>Generate A–D choices</button></div>
-     {question.choices.map((choice,choiceIndex)=><div className="choice-row" key={choiceIndex}><span className="choice-letter">{String.fromCharCode(65+choiceIndex)}</span><input value={choice.text} onChange={event=>changeChoice(group.id,questionIndex,choiceIndex,{text:event.target.value})} placeholder="Optional answer text"/>{question.choices.length>2&&<button type="button" className="choice-delete" aria-label={`Delete option ${String.fromCharCode(65+choiceIndex)}`} onClick={()=>changeQuestion(group.id,questionIndex,{choices:question.choices.filter((_,index)=>index!==choiceIndex)})}><Trash2/></button>}<label><input type="checkbox" checked={choice.isCorrect} onChange={event=>changeChoice(group.id,questionIndex,choiceIndex,{isCorrect:event.target.checked})}/>Correct</label></div>)}
-     <button type="button" className="text-action" onClick={()=>changeQuestion(group.id,questionIndex,{choices:[...question.choices,{text:"",isCorrect:false}]})}><Plus/>Add choice</button></section>)}
-    </div><button type="button" className="button secondary small add-question-bottom" onClick={()=>setGroups(value=>value.map(item=>item.id===group.id?{...item,questions:[...item.questions,blank(group.id)]}:item))}><Plus/>Add question under this image</button><button type="button" className="button secondary small add-page-bottom" onClick={()=>setGroups(value=>{const id=Math.max(-1,...value.map(item=>item.id))+1;return [...value,{id,questions:[blank(id)]}]})}><Plus/>Add another page</button></article>)}
-  </section><label className="check"><input name="assignAll" type="checkbox" defaultChecked/>Assign all matching students</label><button className="button">{assignmentMode?"Add Assignment":homework?"Create Homework":"Create Self Practice"}</button>
- </form>
+import { useState } from "react";
+import { BookOpen, ClipboardCheck, Plus, Trash2, X } from "lucide-react";
+import { createActivityWithUploadedQuestions as createActivityWithQuestions } from "./image-actions";
+import { QuestionImageUpload } from "@/components/question-image-upload";
+import { QuestionTextEditor } from "@/components/question-text-editor";
+import { FormattedQuestionText } from "@/components/formatted-question-text";
+type Kind = "self_practice" | "homework";
+type OldQuestion = { id: string; text: string; points: number };
+type Choice = { text: string; isCorrect: boolean };
+type NewQuestion = {
+  text: string;
+  imageUrl: string;
+  points: number;
+  choices: Choice[];
+  imageGroupIndex: number;
+  questionNumber: number;
+};
+type ImageGroup = { id: number; questions: NewQuestion[] };
+const blank = (groupId: number, questionNumber = 1): NewQuestion => ({
+  text: "",
+  imageUrl: "",
+  points: 1,
+  imageGroupIndex: groupId,
+  questionNumber,
+  choices: [
+    { text: "", isCorrect: true },
+    { text: "", isCorrect: false },
+  ],
+});
+const abcd = (): Choice[] =>
+  ["A", "B", "C", "D"].map((_, index) => ({
+    text: "",
+    isCorrect: index === 0,
+  }));
+export function ActivityForm({
+  unitId,
+  oldQuestions,
+  initialKind = null,
+  assignmentMode = false,
+}: {
+  unitId: string;
+  oldQuestions: OldQuestion[];
+  initialKind?: Kind | null;
+  assignmentMode?: boolean;
+}) {
+  const [kind, setKind] = useState<Kind | null>(initialKind),
+    [selected, setSelected] = useState<string[]>([]),
+    [groups, setGroups] = useState<ImageGroup[]>([
+      { id: 0, questions: [blank(0)] },
+    ]);
+  if (!kind)
+    return (
+      <div className="activity-kind-actions">
+        <button
+          className="activity-kind-card"
+          type="button"
+          onClick={() => setKind("self_practice")}
+        >
+          <BookOpen />
+          <span>
+            <b>Create Self Practice</b>
+            <small>Untimed and without a deadline</small>
+          </span>
+        </button>
+        <button
+          className="activity-kind-card homework"
+          type="button"
+          onClick={() => setKind("homework")}
+        >
+          <ClipboardCheck />
+          <span>
+            <b>Create Homework</b>
+            <small>Untimed with a submission deadline</small>
+          </span>
+        </button>
+      </div>
+    );
+  const homework = kind === "homework";
+  const changeQuestion = (
+    groupId: number,
+    questionIndex: number,
+    patch: Partial<NewQuestion>,
+  ) =>
+    setGroups((value) =>
+      value.map((group) =>
+        group.id === groupId
+          ? {
+              ...group,
+              questions: group.questions.map((question, index) =>
+                index === questionIndex ? { ...question, ...patch } : question,
+              ),
+            }
+          : group,
+      ),
+    );
+  const changeChoice = (
+    groupId: number,
+    questionIndex: number,
+    choiceIndex: number,
+    patch: Partial<Choice>,
+  ) =>
+    setGroups((value) =>
+      value.map((group) =>
+        group.id === groupId
+          ? {
+              ...group,
+              questions: group.questions.map((question, index) =>
+                index === questionIndex
+                  ? {
+                      ...question,
+                      choices: question.choices.map((choice, i) =>
+                        i === choiceIndex ? { ...choice, ...patch } : choice,
+                      ),
+                    }
+                  : question,
+              ),
+            }
+          : group,
+      ),
+    );
+  return (
+    <form
+      action={createActivityWithQuestions}
+      className="activity-builder"
+      onSubmit={(event) => {
+        const form = new FormData(event.currentTarget);
+        const newQuestions = groups
+          .flatMap((group) => group.questions)
+          .map((question) => ({
+            ...question,
+            choices: question.choices.map((choice, index) => ({
+              ...choice,
+              text: choice.text.trim() || String.fromCharCode(65 + index),
+            })),
+          }));
+        (
+          event.currentTarget.elements.namedItem("payload") as HTMLInputElement
+        ).value = JSON.stringify({
+          unitId,
+          kind,
+          title: form.get("title"),
+          deadline: form.get("deadline") || null,
+          assignAll: form.get("assignAll") === "on",
+          questionIds: selected,
+          newQuestions,
+          assignmentMode,
+        });
+      }}
+    >
+      <input type="hidden" name="payload" />
+      <div className="activity-form-title">
+        <div>
+          <b>
+            {assignmentMode
+              ? "Add Assignment"
+              : homework
+                ? "Create Homework"
+                : "Create Self Practice"}
+          </b>
+          <small>
+            Choose saved questions and/or add image pages with questions
+            underneath.
+          </small>
+        </div>
+        {!initialKind && (
+          <button
+            type="button"
+            className="text-action"
+            onClick={() => setKind(null)}
+          >
+            <X />
+            Cancel
+          </button>
+        )}
+      </div>
+      <div className="form-grid">
+        <div className="field">
+          <label>Title</label>
+          <input name="title" required />
+        </div>
+        {homework && (
+          <div className="field">
+            <label>Submission deadline</label>
+            <input name="deadline" type="datetime-local" required />
+          </div>
+        )}
+      </div>
+      <section className="activity-question-source">
+        <h3>Choose from old questions</h3>
+        {oldQuestions.length ? (
+          <div className="old-question-picker">
+            {oldQuestions.map((question) => (
+              <label key={question.id}>
+                <input
+                  type="checkbox"
+                  checked={selected.includes(question.id)}
+                  onChange={(event) =>
+                    setSelected((value) =>
+                      event.target.checked
+                        ? [...value, question.id]
+                        : value.filter((id) => id !== question.id),
+                    )
+                  }
+                />
+                <span>
+                          <b><FormattedQuestionText text={question.text}/></b>
+                  <small>{question.points} points</small>
+                </span>
+              </label>
+            ))}
+          </div>
+        ) : (
+          <p>
+            {assignmentMode
+              ? "No saved questions yet. Add an image page below."
+              : "No old questions in this Unit yet. Add an image page below."}
+          </p>
+        )}
+      </section>
+      <section className="activity-new-questions">
+        <div className="panel-head">
+          <div>
+            <h3>Question pages</h3>
+            <p>
+              Each image can contain several separately named and graded
+              questions.
+            </p>
+          </div>
+        </div>
+        {groups.map((group, pageIndex) => (
+          <article className="question-page-group" key={group.id}>
+            <div className="question-page-heading">
+              <div>
+                <small>QUESTION PAGE {pageIndex + 1}</small>
+                <h3>Upload image, then add its questions</h3>
+              </div>
+              {groups.length > 1 && (
+                <button
+                  type="button"
+                  className="text-action danger"
+                  onClick={() =>
+                    setGroups((value) =>
+                      value.filter((item) => item.id !== group.id),
+                    )
+                  }
+                >
+                  <Trash2 />
+                  Remove page
+                </button>
+              )}
+            </div>
+            <QuestionImageUpload fileName={`questionGroupImage_${group.id}`} />
+            <div className="questions-under-image">
+              {group.questions.map((question, questionIndex) => (
+                <section className="question-editor" key={questionIndex}>
+                  <div className="question-top">
+                    <label className="question-number-input"><span>Question number</span><input type="number" min="1" value={question.questionNumber} onChange={event=>changeQuestion(group.id,questionIndex,{questionNumber:Number(event.target.value)})} required/></label>
+                    {group.questions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setGroups((value) =>
+                            value.map((item) =>
+                              item.id === group.id
+                                ? {
+                                    ...item,
+                                    questions: item.questions.filter(
+                                      (_, index) => index !== questionIndex,
+                                    ),
+                                  }
+                                : item,
+                            ),
+                          )
+                        }
+                      >
+                        <Trash2 />
+                      </button>
+                    )}
+                  </div>
+                  <div className="field">
+                    <label>Question name or text <small>Optional</small></label>
+                    <QuestionTextEditor
+                      value={question.text}
+                      onChange={(text) => changeQuestion(group.id, questionIndex, {text})}
+                    />
+                  </div>
+                  <QuestionImageUpload fileName={`questionImage_${group.id}_${questionIndex}`} onPreviewChange={imageUrl=>changeQuestion(group.id,questionIndex,{imageUrl})}/>
+                  <div className="field">
+                    <label>Points</label>
+                    <input
+                      type="number"
+                      min=".01"
+                      step=".01"
+                      value={question.points}
+                      onChange={(event) =>
+                        changeQuestion(group.id, questionIndex, {
+                          points: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="choice-tools">
+                    <b>Answer choices</b>
+                    <button
+                      className="button secondary small generate-choices-button"
+                      type="button"
+                      onClick={() =>
+                        changeQuestion(group.id, questionIndex, {
+                          choices: abcd(),
+                        })
+                      }
+                    >
+                      Generate A–D choices
+                    </button>
+                  </div>
+                  {question.choices.map((choice, choiceIndex) => (
+                    <div className="choice-row" key={choiceIndex}>
+                      <span className="choice-letter">
+                        {String.fromCharCode(65 + choiceIndex)}
+                      </span>
+                      <input
+                        value={choice.text}
+                        onChange={(event) =>
+                          changeChoice(group.id, questionIndex, choiceIndex, {
+                            text: event.target.value,
+                          })
+                        }
+                        placeholder="Optional answer text"
+                      />
+                      {question.choices.length > 2 && (
+                        <button
+                          type="button"
+                          className="choice-delete"
+                          aria-label={`Delete option ${String.fromCharCode(65 + choiceIndex)}`}
+                          onClick={() =>
+                            changeQuestion(group.id, questionIndex, {
+                              choices: question.choices.filter(
+                                (_, index) => index !== choiceIndex,
+                              ),
+                            })
+                          }
+                        >
+                          <Trash2 />
+                        </button>
+                      )}
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={choice.isCorrect}
+                          onChange={(event) =>
+                            changeChoice(group.id, questionIndex, choiceIndex, {
+                              isCorrect: event.target.checked,
+                            })
+                          }
+                        />
+                        Correct
+                      </label>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="text-action"
+                    onClick={() =>
+                      changeQuestion(group.id, questionIndex, {
+                        choices: [
+                          ...question.choices,
+                          { text: "", isCorrect: false },
+                        ],
+                      })
+                    }
+                  >
+                    <Plus />
+                    Add choice
+                  </button>
+                </section>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="button secondary small add-question-bottom"
+              onClick={() =>
+                setGroups((value) =>
+                  value.map((item) =>
+                    item.id === group.id
+                      ? {
+                          ...item,
+                          questions: [...item.questions, blank(group.id,groups.flatMap(group=>group.questions).length+1)],
+                        }
+                      : item,
+                  ),
+                )
+              }
+            >
+              <Plus />
+              Add question under this image
+            </button>
+            <button
+              type="button"
+              className="button secondary small add-page-bottom"
+              onClick={() =>
+                setGroups((value) => {
+                  const id = Math.max(-1, ...value.map((item) => item.id)) + 1;
+                  return [...value, { id, questions: [blank(id)] }];
+                })
+              }
+            >
+              <Plus />
+              Add another page
+            </button>
+          </article>
+        ))}
+      </section>
+      <label className="check">
+        <input name="assignAll" type="checkbox" defaultChecked />
+        Assign all matching students
+      </label>
+      <button className="button">
+        {assignmentMode
+          ? "Add Assignment"
+          : homework
+            ? "Create Homework"
+            : "Create Self Practice"}
+      </button>
+    </form>
+  );
 }
