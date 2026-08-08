@@ -16,14 +16,14 @@ export default async function AttemptPage({
     supabase.rpc("get_attempt_payload", { p_attempt_id: attemptId }),
     supabase
       .from("exam_attempts")
-      .select("exam_assignments(exams(teacher_id,kind,education_system,american_category))")
+      .select("exam_assignments(exams(teacher_id,kind,education_system,american_category,parent_mock_exam_id))")
       .eq("id", attemptId)
       .single(),
   ]);
   if (error || !data || !attempt) redirect("/student/teachers");
 
   const relation = attempt.exam_assignments as unknown as {
-    exams: { teacher_id: string; kind: string;education_system:string;american_category:string|null };
+    exams: { teacher_id: string; kind: string;education_system:string;american_category:string|null;parent_mock_exam_id:string|null };
   };
   const payload = data as {
     attemptId: string;
@@ -49,7 +49,7 @@ export default async function AttemptPage({
     <ExamAttempt
       {...payload}
       teacherId={relation.exams.teacher_id}
-      returnSection={relation.exams.kind === "mistakes" ? "mistakes-exams" : ["self_practice","homework"].includes(relation.exams.kind) ? relation.exams.education_system==="american"?`assignments?category=${relation.exams.american_category??"classified"}`:"activities" : "exams"}
+      returnSection={relation.exams.parent_mock_exam_id?`exams/mock/${relation.exams.parent_mock_exam_id}`:relation.exams.kind === "mistakes" ? "mistakes-exams" : ["self_practice","homework"].includes(relation.exams.kind) ? relation.exams.education_system==="american"?`assignments?category=${relation.exams.american_category??"classified"}`:"activities" : "exams"}
       untimed={["self_practice","homework"].includes(relation.exams.kind)}
       serverNow={new Date().toISOString()}
       initialAnswers={payload.answers ?? {}}

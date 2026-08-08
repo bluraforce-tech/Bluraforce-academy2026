@@ -63,10 +63,12 @@ export function ExamBuilder({
   students = [],
   questionBank = [],
   initial,
+  mockModule,
 }: {
   students?: Array<{ id: string; name: string }>;
   questionBank?: BankQuestion[];
   initial?: InitialExam;
+  mockModule?: {mockExamId:string;position:number;studentIds:string[]};
 }) {
   const [questions, setQuestions] = useState<Question[]>(initial?.questions??[{ ...blank(), imageGroupIndex: 0 }]);
   const [imageGroups, setImageGroups] = useState<number[]>(initial?[...new Set(initial.questions.flatMap(q=>q.imageGroupIndex===undefined?[]:[q.imageGroupIndex]))]:[0]);
@@ -182,8 +184,8 @@ export function ExamBuilder({
           randomizeQuestions: form.get("randomizeQuestions") === "on",
           randomizeChoices: form.get("randomizeChoices") === "on",
           publish,
-          assignAll,
-          studentIds: form.getAll("studentIds"),
+          assignAll: mockModule?false:assignAll,
+          studentIds: mockModule?mockModule.studentIds:form.getAll("studentIds"),
           questions: questions.map((question, index) => ({
             ...question,
             position: question.questionNumber ?? index + 1,
@@ -200,6 +202,7 @@ export function ExamBuilder({
       }}
     >
       <input type="hidden" name="payload" />
+      {mockModule&&<><input type="hidden" name="mockExamId" value={mockModule.mockExamId}/><input type="hidden" name="modulePosition" value={mockModule.position}/></>}
       {initial && <input type="hidden" name="examId" value={initial.id} />}
       {initial&&updateState.error&&<p className="form-error exam-update-error" role="alert"><strong>Changes not saved.</strong> {updateState.error}</p>}
       <section className="builder-overview" aria-label="Exam overview">
@@ -269,14 +272,14 @@ export function ExamBuilder({
           <label>Instructions</label>
           <textarea name="instructions" rows={3} defaultValue={initial?.instructions??""}/>
         </div>
-        <div className="field">
+        {mockModule?<><input type="hidden" name="startsAt" value={initial?.startsAt??""}/><input type="hidden" name="endsAt" value={initial?.endsAt??""}/></>:<><div className="field">
           <label>Starts at</label>
           <input name="startsAt" type="datetime-local" defaultValue={initial?.startsAt??""}/>
         </div>
         <div className="field">
           <label>Ends at</label>
           <input name="endsAt" type="datetime-local" defaultValue={initial?.endsAt??""}/>
-        </div>
+        </div></>}
         <div className="field">
           <label>Maximum attempts</label>
           <input
@@ -303,7 +306,7 @@ export function ExamBuilder({
             <b>Randomize choices</b>
           </span>
         </label>
-        <label className="check full">
+        {mockModule?<div className="mock-fixed-audience full"><b>Mock Exam audience</b><small>This module inherits all {mockModule.studentIds.length} students assigned to the parent Mock Exam.</small></div>:<><label className="check full">
           <input
             type="checkbox"
             checked={assignAll}
@@ -325,7 +328,7 @@ export function ExamBuilder({
               <small>No active students are enrolled.</small>
             )}
           </div>
-        )}
+        )}</>}
       </section>
 
       {questionBank.length > 0 && (

@@ -17,8 +17,10 @@ type Item = {
   remainingViews?: number | null;
   viewLimitReached?: boolean;
   americanCategory?: string | null;
+  moduleCount?: number;
+  completedCount?: number;
 };
-type Portal = { exams: Item[]; videos: Item[]; materials: Item[]; studyNotes: Item[] };
+type Portal = { exams: Item[]; mockExams: Item[]; videos: Item[]; materials: Item[]; studyNotes: Item[] };
 type Attempt = {
   id: string;
   assignment_id: string;
@@ -74,7 +76,7 @@ export default async function PortalSection({
   const key = (section==="study-notes"?"studyNotes":section) as keyof Portal;
   const {data:profile}=await supabase.from("student_profiles").select("education_system").eq("user_id",user.id).single();
   const american=profile?.education_system==="american";
-  const sectionItems=portal[key]??[];
+  const sectionItems=key==="exams"?[...(portal.exams??[]),...(portal.mockExams??[])]:portal[key]??[];
   const items = american ? sectionItems.filter(item=>item.americanCategory===category) : sectionItems;
   const config = labels[section as keyof typeof labels];
   const Icon = config.icon;
@@ -171,6 +173,7 @@ export default async function PortalSection({
               </article>
             );
           }
+          if(key==="exams"&&item.id){const completed=item.completedCount??0,total=item.moduleCount??3;return <article className={`activity student-exam-card mock-student-card ${completed===total?"completed":completed?"in-progress":""}`} key={item.id}><div className="student-exam-main">{body}<div className="exam-meta"><span className="exam-kind-badge mock">Mock Exam · 3 Modules</span><span className={`status-pill ${completed===total?"success":completed?"progress":""}`}>{completed} / {total} Modules Completed</span></div></div><Link className="button small" href={`/student/teachers/${teacherId}/exams/mock/${item.id}`}>{completed===total?"View results":completed?"Continue":"Open modules"}</Link></article>}
           if (key === "materials"||key === "studyNotes") return <Link className="activity" href={`/student/${key==="studyNotes"?"study-notes":"materials"}/${item.assignmentId}?teacherId=${teacherId}${american?`&category=${category}`:""}`} key={item.assignmentId}>{body}<span>Open</span></Link>;
           return <article className="activity" key={item.assignmentId}>{body}</article>;
         })}

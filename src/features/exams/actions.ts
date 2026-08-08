@@ -26,7 +26,14 @@ export async function createExam(formData:FormData){
   redirect(`/teacher/exams/new?error=invalid-${reason}`);
  }
  let questionsWithImages=parsed.data.questions;try{const groupIds=[...new Set(questionsWithImages.flatMap(q=>q.imageGroupIndex===undefined?[]:[q.imageGroupIndex]))];const groupImages=new Map<number,string>();for(const groupId of groupIds){const image=await uploadQuestionImage(supabase,user.id,formData.get(`questionGroupImage_${groupId}`));if(image)groupImages.set(groupId,image)}questionsWithImages=await Promise.all(questionsWithImages.map(async(question,index)=>{const individualImage=await uploadQuestionImage(supabase,user.id,formData.get(`questionImage_${index}`));return {...question,imageUrl:individualImage??(question.imageGroupIndex===undefined?question.imageUrl:""),pageImageUrl:question.imageGroupIndex===undefined?"":groupImages.get(question.imageGroupIndex)??""};}))}catch{redirect("/teacher/exams/new?error=image")}
- const payload={...parsed.data,questions:questionsWithImages,startsAt:cairoLocalToUtc(parsed.data.startsAt),endsAt:cairoLocalToUtc(parsed.data.endsAt)};
+ const mockExamId=z.string().uuid().safeParse(formData.get("mockExamId")),modulePosition=z.coerce.number().int().min(1).max(3).safeParse(formData.get("modulePosition"));
+ let payload={...parsed.data,questions:questionsWithImages,startsAt:cairoLocalToUtc(parsed.data.startsAt),endsAt:cairoLocalToUtc(parsed.data.endsAt)};
+ if(mockExamId.success||modulePosition.success){
+  if(!mockExamId.success||!modulePosition.success||target.educationSystem!=="american"||target.americanCategory!=="est")redirect("/teacher/exams?error=create");
+  const [{data:parent},{data:assigned}]=await Promise.all([supabase.from("mock_exams").select("id,starts_at,ends_at").eq("id",mockExamId.data).eq("teacher_id",user.id).eq("education_system","american").eq("american_category","est").single(),supabase.from("mock_exam_assignments").select("student_id").eq("mock_exam_id",mockExamId.data)]);
+  if(!parent)redirect("/teacher/exams?error=create");
+  payload={...payload,startsAt:parent.starts_at??"",endsAt:parent.ends_at??"",assignAll:false,studentIds:(assigned??[]).map(a=>a.student_id)};
+ }
  const {data:createdExamId,error}=await supabase.rpc("create_exam_with_questions",{p_payload:payload});
  if(error){
   const reason=error.code==="PGRST202"||error.code==="42883"?"migration":error.message.includes("questions_required")||error.message.includes("invalid_question")?"questions":error.message.includes("invalid_student")?"students":error.code==="23503"?"teacher-profile":"create";
@@ -34,6 +41,12 @@ export async function createExam(formData:FormData){
  }
  const {error:targetError}=await supabase.from("exams").update({education_system:payload.educationSystem,national_grade:payload.nationalGrade,american_category:target.americanCategory}).eq("id",createdExamId).eq("teacher_id",user.id);
  if(targetError)redirect("/teacher/exams/new?error=create");
+ if(mockExamId.success&&modulePosition.success){
+  const {error:moduleError}=await supabase.from("exams").update({parent_mock_exam_id:mockExamId.data,mock_module_position:modulePosition.data}).eq("id",createdExamId).eq("teacher_id",user.id);
+  if(moduleError)redirect(`/teacher/exams/mock/${mockExamId.data}?error=module`);
+  if(payload.publish){const {count}=await supabase.from("exams").select("id",{count:"exact",head:true}).eq("parent_mock_exam_id",mockExamId.data).eq("status","published");if(count===3)await supabase.from("mock_exams").update({status:"published",updated_at:new Date().toISOString()}).eq("id",mockExamId.data).eq("teacher_id",user.id)}
+  revalidatePath(`/teacher/exams/mock/${mockExamId.data}`);revalidatePath("/teacher/exams");redirect(`/teacher/exams/mock/${mockExamId.data}?module=${modulePosition.data}&created=1`);
+ }
  revalidatePath("/teacher/exams");
  revalidatePath("/teacher/dashboard");
  redirect(`/teacher/exams?created=${payload.publish?"published":"draft"}${payload.publish?"":"&status=draft"}`);
@@ -49,7 +62,10 @@ export async function updateExam(_previous:ExamUpdateState,formData:FormData):Pr
  const payload={...parsed.data,questions:questionsWithImages,startsAt:cairoLocalToUtc(parsed.data.startsAt),endsAt:cairoLocalToUtc(parsed.data.endsAt)};
  const {error}=await supabase.rpc("update_exam_with_questions",{p_exam_id:examId.data,p_payload:payload});
  if(error){if(error.code==="PGRST202"||error.code==="42883"||error.message.includes("page_image_url"))return {error:"The exam database is missing the latest page-image migration."};if(error.message.includes("invalid_question"))return {error:"Every question needs at least two choices and one correct answer."};if(error.message.includes("invalid_student"))return {error:"One selected student no longer has active access. Update the student selection and try again."};return {error:`The database rejected the update (${error.code||"unknown"}). ${error.message}`};}
- revalidatePath("/teacher/exams");revalidatePath(`/teacher/exams/${examId.data}/edit`);redirect("/teacher/exams?updated=1");
+ const {data:updatedExam}=await supabase.from("exams").select("parent_mock_exam_id,mock_module_position").eq("id",examId.data).eq("teacher_id",user.id).single();
+ revalidatePath("/teacher/exams");revalidatePath(`/teacher/exams/${examId.data}/edit`);
+ if(updatedExam?.parent_mock_exam_id){const {count}=await supabase.from("exams").select("id",{count:"exact",head:true}).eq("parent_mock_exam_id",updatedExam.parent_mock_exam_id).eq("status","published");await supabase.from("mock_exams").update({status:count===3?"published":"draft",updated_at:new Date().toISOString()}).eq("id",updatedExam.parent_mock_exam_id).eq("teacher_id",user.id);redirect(`/teacher/exams/mock/${updatedExam.parent_mock_exam_id}?module=${updatedExam.mock_module_position}&created=1`)}
+ redirect("/teacher/exams?updated=1");
 }
 export async function updateExistingExam(formData:FormData){
  const supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();if(!user)redirect("/auth/teacher/login");

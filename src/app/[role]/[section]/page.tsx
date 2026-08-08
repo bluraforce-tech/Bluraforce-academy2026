@@ -9,6 +9,7 @@ import { EducationTargetBadge } from "@/components/education-target-badge";
 import { getTeacherEducationTarget } from "@/lib/teacher-education-context";
 import { toggleMaterialVisibility } from "@/features/materials/actions";
 import { MobileAppNav } from "@/components/mobile-app-nav";
+import {MockExamControls} from "@/components/mock-exam-controls";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ const sections = {
   teachers: ["Teachers", "Manage teacher accounts.", "teacher_profiles", "user_id,display_name,biography,is_active,created_at"],
   students: ["Students", "View students available to your role.", "profiles", "id,full_name,created_at"],
   "invitation-codes": ["Invitation codes", "Review secure enrolment codes.", "student_invitation_codes", "id,code_masked,status,expires_at,access_duration_days,education_system,american_category,national_grade,created_at"],
-  exams: ["Exams", "Create, publish, assign, and review assessments.", "exams", "id,title,status,duration_minutes,education_system,american_category,national_grade,created_at"],
+  exams: ["Exams", "Create, publish, assign, and review assessments.", "exams", "id,title,status,duration_minutes,education_system,american_category,national_grade,parent_mock_exam_id,created_at"],
   "mistakes-exams": ["Mistakes exams", "Review automatically generated student revision exams and their results.", "exams", "id,title,status,duration_minutes,created_at"],
   videos: ["Lesson videos", "Manage internal lesson playback.", "lesson_videos", "id,title,status,lesson_name,education_system,american_category,national_grade,created_at"],
   materials: ["Material Books", "Manage assigned books and learning resources.", "materials", "id,title,status,material_type,education_system,american_category,national_grade,created_at"],
@@ -35,7 +36,7 @@ const nav = [
   ["Study Notes", "study-notes", FileText],
 ] as const;
 
-export default async function SectionPage({ params,searchParams }: { params: Promise<{ role: string; section: string }>;searchParams:Promise<{q?:string;status?:string;created?:string}> }) {
+export default async function SectionPage({ params,searchParams }: { params: Promise<{ role: string; section: string }>;searchParams:Promise<{q?:string;status?:string;created?:string;error?:string;visibility?:string;deleted?:string}> }) {
   const { role, section } = await params,queryParams=await searchParams,studentSearch=(queryParams.q??"").trim();
   const examStatus=["draft","published","archived"].includes(queryParams.status??"")?queryParams.status:null;
   if (!["admin", "teacher", "student"].includes(role) || !(section in sections)) redirect("/");
@@ -83,13 +84,21 @@ export default async function SectionPage({ params,searchParams }: { params: Pro
       if(section!=="invitation-codes")query=teacherTarget.educationSystem==="american"?query.eq("american_category",teacherTarget.americanCategory):query.eq("national_grade",teacherTarget.nationalGrade);
       else if(teacherTarget.educationSystem==="national")query=query.eq("national_grade",teacherTarget.nationalGrade);
     }
-    if (section === "exams") query = query.eq("kind", "standard");
+    if (section === "exams") query = query.eq("kind", "standard").is("parent_mock_exam_id",null);
     if (section === "exams" && role === "teacher" && examStatus) query = query.eq("status", examStatus);
     if (section === "mistakes-exams") query = query.eq("kind", "mistakes");
     if (section === "materials") query = query.eq("resource_kind", "material_book");
     if (section === "study-notes") query = query.eq("resource_kind", "study_note");
     const { data } = await query;
     rows = (data ?? []) as unknown as Record<string, unknown>[];
+    if(section==="exams"&&role==="teacher"&&teacherTarget?.educationSystem==="american"&&teacherTarget.americanCategory==="est"){
+      let mockQuery=supabase.from("mock_exams").select("id,title,status,education_system,american_category,created_at").eq("teacher_id",user.id).order("created_at",{ascending:false});
+      if(examStatus)mockQuery=mockQuery.eq("status",examStatus);
+      const {data:mocks}=await mockQuery,moduleIds=(mocks??[]).map(m=>m.id);
+      const [{data:modules},{data:mockAssignments}]=moduleIds.length?await Promise.all([supabase.from("exams").select("parent_mock_exam_id,status").in("parent_mock_exam_id",moduleIds),supabase.from("mock_exam_assignments").select("mock_exam_id").in("mock_exam_id",moduleIds)]):[{data:[]},{data:[]}];
+      const enriched=(mocks??[]).map(mock=>({...mock,record_type:"mock",module_count:(modules??[]).filter(m=>m.parent_mock_exam_id===mock.id).length,student_count:(mockAssignments??[]).filter(a=>a.mock_exam_id===mock.id).length}));
+      rows=([...rows.map(row=>({...row,record_type:"passage"})),...enriched] as Record<string,unknown>[]).sort((a,b)=>Date.parse(String(b.created_at))-Date.parse(String(a.created_at)));
+    }
   }
 
   const createTeacher = role === "admin" && section === "teachers";
@@ -120,6 +129,9 @@ export default async function SectionPage({ params,searchParams }: { params: Pro
       {createExam&&<nav className="exam-status-filters" aria-label="Filter exams by status"><Link className={!examStatus?"active":""} href="/teacher/exams">All exams</Link><Link className={examStatus==="draft"?"active":""} href="/teacher/exams?status=draft">Drafts</Link><Link className={examStatus==="published"?"active":""} href="/teacher/exams?status=published">Published</Link><Link className={examStatus==="archived"?"active":""} href="/teacher/exams?status=archived">Hidden</Link></nav>}
       {createExam&&queryParams.created==="draft"&&<p className="form-success">Draft saved. You can find it below and continue with Edit.</p>}
       {createExam&&queryParams.created==="published"&&<p className="form-success">Exam published successfully.</p>}
+      {createExam&&queryParams.visibility&&<p className="form-success">Mock Exam {queryParams.visibility==="shown"?"is now visible to students.":"has been hidden from students."}</p>}
+      {createExam&&queryParams.deleted&&<p className="form-success">Mock Exam and all of its modules were deleted.</p>}
+      {createExam&&queryParams.error?.startsWith("mock-")&&<p className="form-error">{queryParams.error==="mock-incomplete"?"Publish all three modules before showing this Mock Exam.":queryParams.error==="mock-delete-migration"?"Apply the latest Mock Exam deletion migration first.":"The Mock Exam action could not be completed."}</p>}
       {section==="mistakes-exams"&&role==="teacher"&&<form className="panel student-name-search" method="get"><div className="field"><label htmlFor="student-search">Search by student name</label><div><Search size={18}/><input id="student-search" name="q" defaultValue={studentSearch} placeholder="Enter a student name"/></div></div><button className="button small" type="submit">Search</button>{studentSearch&&<Link className="button secondary small" href="/teacher/mistakes-exams">Clear</Link>}</form>}
       <section className="panel records-panel">
         {rows.length === 0 ? <div className="empty-state"><span><FileText /></span><h2>{createExam&&examStatus?`No ${examStatus==="archived"?"hidden":examStatus} exams`:"No records yet"}</h2><p>{createExam&&examStatus==="draft"?"Draft exams saved in this teaching environment will appear here.":"Records you are authorized to access will appear here."}</p>{action && <div className="empty-action">{action}</div>}</div>
@@ -128,6 +140,7 @@ export default async function SectionPage({ params,searchParams }: { params: Pro
             return <article key={String(row.id ?? row.user_id ?? index)}>
               <div>
                 <b>{String(row.display_name ?? row.full_name ?? row.title ?? row.code_masked ?? row.action ?? "Record")}</b>
+                {createExam&&teacherTarget?.educationSystem==="american"&&teacherTarget.americanCategory==="est"&&<span className={`exam-kind-badge ${row.record_type==="mock"?"mock":""}`}>{row.record_type==="mock"?`Mock Exam · ${row.module_count}/3 Modules · ${row.student_count} Students`:"Passage Based"}</span>}
                 <small>{status === "archived" ? "Hidden" : status === "draft" ? "Draft — not visible to students" : status === "published" ? "Published" : String(row.status ?? row.entity_type ?? row.biography ?? (row.is_active === true ? "Active" : "Inactive"))}{row.duration_minutes ? ` · ${row.duration_minutes} minutes` : ""}</small>
                 {["invitation-codes","exams","videos","materials","study-notes"].includes(section)&&<EducationTargetBadge educationSystem={row.education_system} americanCategory={row.american_category} nationalGrade={row.national_grade}/>}
                 {section === "mistakes-exams" && Boolean(row.student_name) && <small>Student: {String(row.student_name)} · Automatically visible</small>}
@@ -135,10 +148,11 @@ export default async function SectionPage({ params,searchParams }: { params: Pro
               <div className="record-actions">
                 <time>{row.created_at ? new Date(String(row.created_at)).toLocaleDateString() : ""}</time>
                 {createTeacher && <Link className="text-action" href={`/admin/teachers/${String(row.user_id)}/edit`}>Edit</Link>}
-                {reviewExam && <Link className="text-action" href={`/teacher/exams/${String(row.id)}/results`}>Results</Link>}
-                {createExam && <Link className="text-action" href={`/teacher/exams/${String(row.id)}/edit`}>Edit</Link>}
-                {createExam && ["published", "archived"].includes(status) && <form action={toggleExamVisibility}><input type="hidden" name="examId" value={String(row.id)} /><button className={`visibility-action ${status === "published" ? "hide" : "show"}`}>{status === "published" ? "Hide" : "Show"}</button></form>}
-                {reviewExam && <DeleteExamForm examId={String(row.id)} title={String(row.title ?? "exam")} />}
+                {reviewExam&&row.record_type!=="mock"&&<Link className="text-action" href={`/teacher/exams/${String(row.id)}/results`}>Results</Link>}
+                {createExam&&row.record_type==="mock"?<Link className="text-action" href={`/teacher/exams/mock/${String(row.id)}`}>Manage modules</Link>:createExam&&<Link className="text-action" href={`/teacher/exams/${String(row.id)}/edit`}>Edit</Link>}
+                {createExam&&row.record_type==="mock"&&<MockExamControls mockExamId={String(row.id)} title={String(row.title)} status={status}/>}
+                {createExam&&row.record_type!=="mock"&&["published", "archived"].includes(status) && <form action={toggleExamVisibility}><input type="hidden" name="examId" value={String(row.id)} /><button className={`visibility-action ${status === "published" ? "hide" : "show"}`}>{status === "published" ? "Hide" : "Show"}</button></form>}
+                {reviewExam&&row.record_type!=="mock"&&<DeleteExamForm examId={String(row.id)} title={String(row.title ?? "exam")} />}
                 {createVideo && <Link className="text-action" href={`/teacher/videos/${String(row.id)}/edit`}>Edit</Link>}
                 {(createMaterial||createStudyNote)&&<Link className="text-action" href={`/teacher/${section}/${String(row.id)}/edit`}>Edit</Link>}
                 {(createMaterial||createStudyNote)&&["published","archived"].includes(status)&&<form action={toggleMaterialVisibility}><input type="hidden" name="materialId" value={String(row.id)}/><input type="hidden" name="contentKind" value={createStudyNote?"study_note":"material_book"}/><input type="hidden" name="show" value={status==="archived"?"true":"false"}/><button className={`visibility-action ${status==="published"?"hide":"show"}`}>{status==="published"?"Hide":"Show"}</button></form>}
