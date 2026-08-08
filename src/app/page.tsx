@@ -12,7 +12,7 @@ export default async function Home() {
     <main>
       <nav className="nav shell">
         <Link href="/" className="brand"><span className="brand-mark"><GraduationCap size={22}/></span>High Achievers</Link>
-        <div className="nav-actions"><Link href="/auth/student/login" className="text-link">Sign in</Link><Link href="/auth/student/register" className="button small">Create account</Link></div>
+        <div className="nav-actions"><Link href="/student-results" className="text-link">Check results</Link><Link href="/auth/student/login" className="text-link">Sign in</Link><Link href="/auth/student/register" className="button small">Create account</Link></div>
       </nav>
       <section className="hero shell">
         <div className="hero-copy">

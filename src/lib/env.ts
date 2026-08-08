@@ -6,6 +6,8 @@ const schema=z.object({
   NATIONAL_ID_HMAC_SECRET:z.string().min(32).optional(),
   NATIONAL_ID_ENCRYPTION_KEY:z.string().optional(),
   INVITATION_CODE_PEPPER:z.string().min(32).optional(),
+  RESULTS_LOOKUP_HMAC_SECRET:z.string().min(32).optional(),
+  RESULTS_OTP_REQUIRED:z.enum(["true","false"]).optional(),
 });
 export const env=schema.parse({
   NEXT_PUBLIC_SUPABASE_URL:process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -14,4 +16,6 @@ export const env=schema.parse({
   NATIONAL_ID_HMAC_SECRET:process.env.NATIONAL_ID_HMAC_SECRET,
   NATIONAL_ID_ENCRYPTION_KEY:process.env.NATIONAL_ID_ENCRYPTION_KEY,
   INVITATION_CODE_PEPPER:process.env.INVITATION_CODE_PEPPER,
+  RESULTS_LOOKUP_HMAC_SECRET:process.env.RESULTS_LOOKUP_HMAC_SECRET,
+  RESULTS_OTP_REQUIRED:process.env.RESULTS_OTP_REQUIRED,
 });
