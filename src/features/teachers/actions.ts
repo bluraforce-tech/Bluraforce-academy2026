@@ -15,6 +15,7 @@ const teacherSchema=z.object({
 const teacherUpdateSchema=teacherSchema.omit({password:true}).extend({
   teacherId:z.string().uuid(),
   password:z.union([z.literal(""),z.string().min(8).max(72)]),
+  accessDurationDays:z.coerce.number().int().min(1).max(3650),
 });
 
 export async function createTeacher(formData:FormData){
@@ -73,7 +74,7 @@ export async function updateTeacher(formData:FormData){
   }).eq("id",input.teacherId).eq("role","teacher");
   const {error:teacherError}=profileError?{error:profileError}:await admin.from("teacher_profiles").update({
     display_name:input.displayName,image_url:input.imageUrl||null,
-    biography:input.biography||null,is_active:input.isActive==="on",
+    biography:input.biography||null,is_active:input.isActive==="on",access_duration_days:input.accessDurationDays,
   }).eq("user_id",input.teacherId);
   if(profileError||teacherError)redirect(`/admin/teachers/${input.teacherId}/edit?error=profile`);
   const authChanges:{email:string;user_metadata:{full_name:string};password?:string}={
@@ -85,7 +86,7 @@ export async function updateTeacher(formData:FormData){
   await admin.from("audit_logs").insert({
     actor_id:user.id,actor_role:"admin",action:"teacher.updated",
     entity_type:"teacher",entity_id:input.teacherId,
-    metadata:{email:input.email,is_active:input.isActive==="on"},
+    metadata:{email:input.email,is_active:input.isActive==="on",access_duration_days:input.accessDurationDays},
   });
   redirect("/admin/teachers?updated=1");
 }
